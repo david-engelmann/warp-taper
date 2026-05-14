@@ -1,6 +1,9 @@
 # warp-taper
 
-https://github.com/david-engelmann/warp-taper/raw/main/docs/sample-tape/master.mp4
+<video src="https://github.com/david-engelmann/warp-taper/raw/main/docs/sample-tape/master.mp4" controls width="720" muted playsinline>
+  Your browser doesn't support inline video.
+  <a href="https://github.com/david-engelmann/warp-taper/raw/main/docs/sample-tape/master.mp4">Download the demo recording (~580 KB).</a>
+</video>
 
 > The recording above is `docs/sample-tape/master.mp4` — produced by
 > `scripts/record-warp-demo.sh`, which drives Warp via `CGEventPost`

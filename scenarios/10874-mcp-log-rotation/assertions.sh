@@ -2,9 +2,9 @@
 # Assertions for the MCP-log-rotation scenario.
 #
 # These run after the recording finishes. Variables exported by the runner:
-#   TAPE_DIR        absolute path to the tape bundle root
+#   TAPE_DIR        absolute path to the bundle root
 #   TAPE_LOGS       ${TAPE_DIR}/logs
-#   TAPE_SBD        ${TAPE_DIR}/logs/warp-oss.session.log  (may not exist)
+#   TAPE_SESSION    ${TAPE_DIR}/logs/warp-oss.session.log  (may not exist)
 #   TAPE_MCP_LOGS   ${TAPE_DIR}/logs/mcp                   (may not exist)
 #
 # The scenario's metadata declares `mcp_log_paths` pointing at the live MCP log
@@ -69,13 +69,13 @@ fi
 
 # 4. Optional: assert that warp-oss didn't emit any rotation-failure WARNs
 #    during the session.
-if [[ -f "${TAPE_SBD}" ]]; then
-    if grep -qE 'SimpleLogger: rotation failed' "${TAPE_SBD}"; then
-        echo "  ✗ SBD log contains 'rotation failed' WARN — rotation errored at runtime"
+if [[ -f "${TAPE_SESSION}" ]]; then
+    if grep -qE 'SimpleLogger: rotation failed' "${TAPE_SESSION}"; then
+        echo "  ✗ session log contains 'rotation failed' WARN — rotation errored at runtime"
         echo "      (see logs/warp-oss.session.log)"
         fail_count=$((fail_count + 1))
     else
-        echo "  ✓ no rotation-failure WARNs in SBD log"
+        echo "  ✓ no rotation-failure WARNs in session log"
     fi
 fi
 

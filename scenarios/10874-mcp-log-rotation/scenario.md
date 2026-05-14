@@ -5,7 +5,7 @@ should rotate after writing past the configured size threshold (default
 10 MiB × 5 rotated copies = 60 MiB cap per server). Before the fix the file
 grew without bound.
 
-## Setlist
+## Steps
 
 1. **Setup** — `setup.sh` clears any rotated files from previous runs in the
    MCP log directory so the post-recording assertions start from a clean slate.
@@ -40,7 +40,7 @@ grew without bound.
 - At the moment of rotation, the active file's size drops back to near zero
   (the rotation event ends a file and starts a fresh one).
 
-## What to look for in the SBD log
+## What to look for in the session log
 
 - `warp-oss.session.log` contains the rotation log line:
   `SimpleLogger: rotation completed for ...`  

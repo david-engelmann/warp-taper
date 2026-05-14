@@ -11,7 +11,7 @@
 #   TAPE_DIR        absolute path to the tape bundle root
 #   TAPE_LOGS       ${TAPE_DIR}/logs
 #   TAPE_PATCHES    ${TAPE_DIR}/patches
-#   TAPE_SBD        ${TAPE_DIR}/logs/warp-oss.session.log  (if it exists)
+#   TAPE_SESSION    ${TAPE_DIR}/logs/warp-oss.session.log  (if it exists)
 #   TAPE_MCP_LOGS   ${TAPE_DIR}/logs/mcp                   (if non-empty)
 #   WARP_SOURCE     resolved warp checkout (used by some assertions)
 #
@@ -38,7 +38,7 @@ evaluate_assertions() {
     export TAPE_DIR="${tape_dir}"
     export TAPE_LOGS="${tape_dir}/logs"
     export TAPE_PATCHES="${tape_dir}/patches"
-    export TAPE_SBD="${tape_dir}/logs/warp-oss.session.log"
+    export TAPE_SESSION="${tape_dir}/logs/warp-oss.session.log"
     export TAPE_MCP_LOGS="${tape_dir}/logs/mcp"
     export WARP_SOURCE
 

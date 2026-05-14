@@ -7,4 +7,4 @@
 
 pub mod cargo_project;
 
-pub use cargo_project::{tiny_warp, TinyWarp};
+pub use cargo_project::{tiny_warp, tiny_warp_with_behavior, TinyWarp, WarpBehavior};

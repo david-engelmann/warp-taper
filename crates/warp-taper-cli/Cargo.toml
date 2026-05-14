@@ -14,3 +14,9 @@ path = "src/main.rs"
 [dependencies]
 clap = { workspace = true }
 warp-taper-core = { path = "../warp-taper-core" }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+assert_cmd = { workspace = true }
+predicates = { workspace = true }
+warp-taper-fixtures = { path = "../warp-taper-fixtures" }

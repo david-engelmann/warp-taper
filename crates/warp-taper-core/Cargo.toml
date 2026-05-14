@@ -9,3 +9,12 @@ repository.workspace = true
 
 [dependencies]
 thiserror = { workspace = true }
+serde = { workspace = true }
+serde_yml = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+insta = { workspace = true }
+proptest = { workspace = true }
+rstest = { workspace = true }

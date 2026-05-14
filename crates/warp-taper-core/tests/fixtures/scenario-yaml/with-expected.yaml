@@ -1,0 +1,4 @@
+title: "with expected"
+expected: |
+  This is a multi-line
+  expected behavior block.

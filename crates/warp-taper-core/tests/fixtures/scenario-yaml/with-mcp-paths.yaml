@@ -1,0 +1,4 @@
+title: "with mcp paths"
+mcp_log_paths:
+  - /var/tmp/path-one
+  - /var/tmp/path-two

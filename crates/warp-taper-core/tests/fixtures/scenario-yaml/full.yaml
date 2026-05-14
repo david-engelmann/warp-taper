@@ -1,0 +1,7 @@
+title: "full kitchen sink"
+ticket: "warpdotdev/warp#10874"
+expected: |
+  An MCP server's log rotates after the size threshold is crossed.
+  No error toasts during rotation.
+mcp_log_paths:
+  - /var/tmp/mcp

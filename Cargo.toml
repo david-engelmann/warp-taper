@@ -13,3 +13,12 @@ repository = "https://github.com/david-engelmann/warp-taper"
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_yml = "0.0.12"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+
+# Dev-only
+tempfile = "3"
+insta = "1"
+proptest = "1"
+rstest = "0.24"

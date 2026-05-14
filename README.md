@@ -1,5 +1,13 @@
 # warp-taper
 
+https://github.com/david-engelmann/warp-taper/raw/main/docs/sample-tape/master.mov
+
+> The recording above is `docs/sample-tape/master.mov` — produced by
+> `scripts/record-warp-demo.sh`, which drives Warp via `CGEventPost`
+> (Playwright-style) while ScreenCaptureKit captures Warp's window
+> buffer. The demo binary scrolling inside Warp simulates the LLM-driven
+> MCP log rotation flow from [warpdotdev/warp#10882](https://github.com/warpdotdev/warp/pull/10882).
+
 Evidence-recording toolkit for [warpdotdev/warp](https://github.com/warpdotdev/warp) PRs. Runs a scenario against a local Warp build, captures screen + logs, runs programmatic assertions, and emits a bundle ready to attach to a PR comment.
 
 ## Pipeline

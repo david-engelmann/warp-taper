@@ -1,0 +1,11 @@
+[package]
+name = "warp-taper-core"
+description = "Evidence-recording library for warpdotdev/warp PRs."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }

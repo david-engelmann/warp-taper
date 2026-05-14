@@ -147,10 +147,13 @@ impl Pipeline {
         }
 
         // 2. deploy
+        //
+        // Deliberately do NOT call .capture_output() — we want the deployed
+        // binary's stdout/stderr to inherit from the parent so its output
+        // is visible to a screen capture and to the user watching the run.
+        // (Stage logs still record build output via render_build_log.)
         let deploy_started = Utc::now();
-        let deploy_handle = DeployStage::new(&build_output.binary_path)
-            .capture_output()
-            .run()?;
+        let deploy_handle = DeployStage::new(&build_output.binary_path).run()?;
         let deploy_pid = deploy_handle.pid();
         if let Some(cb) = &self.on_deploy_spawned {
             cb(deploy_pid);

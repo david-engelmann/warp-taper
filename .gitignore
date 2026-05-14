@@ -6,6 +6,7 @@ tapes/*
 # Rust build artifacts
 target/
 **/*.rs.bk
+scripts/demo-rotation/Cargo.lock
 
 # macOS noise
 .DS_Store

@@ -1,0 +1,24 @@
+# Standalone Cargo project — not a member of the warp-taper workspace.
+#
+# scripts/generate-sample-tape.sh builds this as the "warp source" for the
+# sample-tape demo. The binary simulates the rotation + LLM-summarization
+# behavior of warpdotdev/warp's `simple_logger` crate (PR #10882, branch
+# david/advanced-log-rotation-poc) without depending on warpui, so the
+# whole demo builds in seconds rather than minutes.
+
+# Standalone workspace so cargo doesn't try to fold us into the warp-taper
+# workspace above.
+[workspace]
+
+[package]
+name = "warp"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "warp-oss"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = "1"

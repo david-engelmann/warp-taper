@@ -1,0 +1,1 @@
+{"input_bytes":808,"rotation_index":1,"source":"canned-fallback","summary":"12 routine search/read tool calls; 2 rate-limit backoffs; 1 upstream cache miss recovered via source fallback. No user-visible errors. Suggested follow-up: monitor cache hit rate."}

@@ -1,0 +1,32 @@
+[2026-05-14T17:00:30Z] [INFO] mcp-server started, listening on stdio
+[2026-05-14T17:00:31Z] [INFO] received initialize request, protocolVersion=2024-11-05
+[2026-05-14T17:00:32Z] [INFO] tools/list returned 4 tools
+[2026-05-14T17:00:33Z] [WARN] tool call "search": rate-limit backoff 250ms
+[2026-05-14T17:00:34Z] [INFO] tool call "search": 1342 ms, 18 results
+[2026-05-14T17:00:35Z] [INFO] tool call "read_resource": 89 ms
+[2026-05-14T17:00:36Z] [ERROR] upstream cache miss for sha256:abc1f4..., falling back to source
+[2026-05-14T17:00:37Z] [INFO] tool call "search": 1099 ms, 12 results
+[2026-05-14T17:00:38Z] [INFO] heartbeat ok
+[2026-05-14T17:00:39Z] [INFO] tool call "write_memo": 12 ms
+[2026-05-14T17:00:40Z] [INFO] heartbeat ok
+[2026-05-14T17:00:41Z] [WARN] tool call "search": rate-limit backoff 500ms
+[2026-05-14T17:00:42Z] [INFO] mcp-server started, listening on stdio
+[2026-05-14T17:00:43Z] [INFO] received initialize request, protocolVersion=2024-11-05
+[2026-05-14T17:00:44Z] [INFO] tools/list returned 4 tools
+[2026-05-14T17:00:45Z] [WARN] tool call "search": rate-limit backoff 250ms
+[2026-05-14T17:00:46Z] [INFO] tool call "search": 1342 ms, 18 results
+[2026-05-14T17:00:47Z] [INFO] tool call "read_resource": 89 ms
+[2026-05-14T17:00:48Z] [ERROR] upstream cache miss for sha256:abc1f4..., falling back to source
+[2026-05-14T17:00:49Z] [INFO] tool call "search": 1099 ms, 12 results
+[2026-05-14T17:00:50Z] [INFO] heartbeat ok
+[2026-05-14T17:00:51Z] [INFO] tool call "write_memo": 12 ms
+[2026-05-14T17:00:52Z] [INFO] heartbeat ok
+[2026-05-14T17:00:53Z] [WARN] tool call "search": rate-limit backoff 500ms
+[2026-05-14T17:00:54Z] [INFO] mcp-server started, listening on stdio
+[2026-05-14T17:00:55Z] [INFO] received initialize request, protocolVersion=2024-11-05
+[2026-05-14T17:00:56Z] [INFO] tools/list returned 4 tools
+[2026-05-14T17:00:57Z] [WARN] tool call "search": rate-limit backoff 250ms
+[2026-05-14T17:00:58Z] [INFO] tool call "search": 1342 ms, 18 results
+[2026-05-14T17:00:59Z] [INFO] tool call "read_resource": 89 ms
+[2026-05-14T17:00:30Z] [ERROR] upstream cache miss for sha256:abc1f4..., falling back to source
+[2026-05-14T17:00:31Z] [INFO] tool call "search": 1099 ms, 12 results

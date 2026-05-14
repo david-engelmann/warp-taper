@@ -16,6 +16,20 @@ use crate::recorder::RecordingArtifact;
 pub struct MacOsScreencapture {
     binary: PathBuf,
     max_duration_seconds: u64,
+    /// Optional `-R x,y,w,h` capture rect. When `None`, screencapture
+    /// opens its interactive region picker; when `Some`, it records the
+    /// pre-specified rect without user interaction.
+    ///
+    /// **Use [`with_window_id`] in preference to `with_region` whenever
+    /// possible** — region capture records pixels at those screen
+    /// coordinates regardless of which app owns them, so anything that
+    /// happens to be visible in that rectangle ends up in the .mov. Window
+    /// capture is bounded to the chosen window's content.
+    region: Option<(u32, u32, u32, u32)>,
+    /// Optional `-l<windowid>` window-scoped capture. Records only the
+    /// pixels owned by the given CGWindowID. Safer than region capture
+    /// because nothing outside that window can leak into the .mov.
+    window_id: Option<u32>,
 }
 
 impl Default for MacOsScreencapture {
@@ -29,6 +43,8 @@ impl MacOsScreencapture {
         Self {
             binary: PathBuf::from("/usr/sbin/screencapture"),
             max_duration_seconds: 600,
+            region: None,
+            window_id: None,
         }
     }
 
@@ -40,6 +56,39 @@ impl MacOsScreencapture {
     pub fn with_binary(mut self, p: impl Into<PathBuf>) -> Self {
         self.binary = p.into();
         self
+    }
+
+    /// Pre-specify the capture rect (x, y, width, height in display points).
+    /// Skips the interactive region picker.
+    ///
+    /// **Prefer [`with_window_id`] when possible.** Region capture records
+    /// pixels at those screen coordinates regardless of which app owns
+    /// them — anything else visible in that rectangle (chat windows,
+    /// other terminals) will be in the .mov.
+    pub fn with_region(mut self, x: u32, y: u32, w: u32, h: u32) -> Self {
+        self.region = Some((x, y, w, h));
+        self.window_id = None;
+        self
+    }
+
+    /// Record only the pixels of a specific window (CGWindowID).
+    /// Discover the ID via `osascript`:
+    ///
+    /// ```sh
+    /// osascript -e 'tell application "System Events" to id of front window of (first process whose name is "Warp")'
+    /// ```
+    pub fn with_window_id(mut self, window_id: u32) -> Self {
+        self.window_id = Some(window_id);
+        self.region = None;
+        self
+    }
+
+    pub fn region(&self) -> Option<(u32, u32, u32, u32)> {
+        self.region
+    }
+
+    pub fn window_id(&self) -> Option<u32> {
+        self.window_id
     }
 
     pub fn binary(&self) -> &Path {
@@ -56,6 +105,12 @@ impl MacOsScreencapture {
         let mut cmd = Command::new(&self.binary);
         cmd.arg("-v");
         cmd.arg("-V").arg(self.max_duration_seconds.to_string());
+        // window_id takes precedence over region — set in with_*, never both.
+        if let Some(id) = self.window_id {
+            cmd.arg(format!("-l{id}"));
+        } else if let Some((x, y, w, h)) = self.region {
+            cmd.arg("-R").arg(format!("{x},{y},{w},{h}"));
+        }
         cmd.arg(dest);
         cmd
     }
@@ -97,16 +152,31 @@ impl MacOsScreencaptureHandle {
         &self.dest
     }
 
-    /// Signal screencapture to finalize the recording and wait for it to
-    /// exit. Sends SIGINT first (screencapture's documented stop signal);
-    /// falls back to SIGKILL if signalling fails.
+    /// Wait for screencapture to finalize the recording. Gives it a grace
+    /// period to exit on its own first — screencapture only writes the
+    /// .mov when it terminates via its own `-V` timer or an interactive
+    /// stop. A premature SIGINT kills it without flushing the file, so we
+    /// only signal as a last resort after the grace period.
     pub fn stop(mut self) -> Result<RecordingArtifact> {
-        let pid = self.child.id() as libc::pid_t;
-        // SAFETY: libc::kill is always safe to call with a valid PID and signal.
-        let sent = unsafe { libc::kill(pid, libc::SIGINT) };
-        if sent != 0 {
-            // Could be ESRCH (already exited). Force-kill as a fallback.
-            let _ = self.child.kill();
+        use std::time::Duration as StdDuration;
+
+        let grace = StdDuration::from_millis(1500);
+        let deadline = Instant::now() + grace;
+        while Instant::now() < deadline {
+            match self.child.try_wait().map_err(Error::Io)? {
+                Some(_) => break,
+                None => std::thread::sleep(StdDuration::from_millis(50)),
+            }
+        }
+
+        // Still alive after grace? Try a polite SIGINT, then SIGKILL.
+        if self.child.try_wait().map_err(Error::Io)?.is_none() {
+            let pid = self.child.id() as libc::pid_t;
+            // SAFETY: libc::kill is always safe to call with a valid PID and signal.
+            let sent = unsafe { libc::kill(pid, libc::SIGINT) };
+            if sent != 0 {
+                let _ = self.child.kill();
+            }
         }
         let status = self.child.wait().map_err(Error::Io)?;
         let duration = self.started_at.elapsed();
@@ -162,11 +232,133 @@ mod tests {
     }
 
     #[test]
+    fn with_region_emits_r_flag() {
+        let r = MacOsScreencapture::new().with_region(10, 20, 800, 600);
+        let cmd = r.command(Path::new("/tmp/out.mov"));
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        let idx = args
+            .iter()
+            .position(|a| a == "-R")
+            .expect("-R should appear");
+        assert_eq!(args[idx + 1], "10,20,800,600");
+    }
+
+    #[test]
+    fn without_region_no_r_flag() {
+        let r = MacOsScreencapture::new();
+        let cmd = r.command(Path::new("/tmp/out.mov"));
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert!(!args.iter().any(|a| a == "-R"));
+        assert_eq!(r.region(), None);
+        assert_eq!(r.window_id(), None);
+    }
+
+    #[test]
+    fn with_window_id_emits_l_flag() {
+        let r = MacOsScreencapture::new().with_window_id(12345);
+        let cmd = r.command(Path::new("/tmp/out.mov"));
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert!(args.iter().any(|a| a == "-l12345"));
+        assert_eq!(r.window_id(), Some(12345));
+    }
+
+    #[test]
+    fn with_window_id_clears_region_and_vice_versa() {
+        // window_id wins when set last.
+        let r = MacOsScreencapture::new()
+            .with_region(0, 0, 100, 100)
+            .with_window_id(42);
+        assert_eq!(r.region(), None);
+        assert_eq!(r.window_id(), Some(42));
+        let args: Vec<String> = r
+            .command(Path::new("/tmp/out.mov"))
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert!(!args.iter().any(|a| a == "-R"));
+        assert!(args.iter().any(|a| a == "-l42"));
+
+        // region wins when set last.
+        let r = MacOsScreencapture::new()
+            .with_window_id(42)
+            .with_region(0, 0, 100, 100);
+        assert_eq!(r.window_id(), None);
+        assert_eq!(r.region(), Some((0, 0, 100, 100)));
+        let args: Vec<String> = r
+            .command(Path::new("/tmp/out.mov"))
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert!(args.iter().any(|a| a == "-R"));
+        assert!(!args.iter().any(|a| a.starts_with("-l")));
+    }
+
+    #[test]
     fn start_errors_when_binary_missing() {
         let tmp = tempfile::tempdir().unwrap();
         let r = MacOsScreencapture::new().with_binary("/no/such/screencapture");
         let err = r.start(tmp.path().join("out.mov")).unwrap_err();
         assert!(matches!(err, Error::Io(_)));
+    }
+
+    #[test]
+    fn stop_returns_artifact_when_child_exits_naturally_with_dest() {
+        // Use /bin/sh to pretend to be screencapture: write some bytes to
+        // dest then exit. The handle's stop() should find the child already
+        // gone (during the grace period), not signal it, and return the
+        // bytes + duration.
+        let tmp = tempfile::tempdir().unwrap();
+        let dest = tmp.path().join("fake.mov");
+        let dest_str = dest.to_string_lossy().to_string();
+        let mut cmd = Command::new("/bin/sh");
+        cmd.arg("-c").arg(format!(
+            "printf 'fake-mov-payload' > {}; exit 0",
+            shell_escape(&dest_str)
+        ));
+        let child = cmd.spawn().unwrap();
+        let handle = MacOsScreencaptureHandle {
+            dest: dest.clone(),
+            child,
+            started_at: Instant::now(),
+        };
+        let artifact = handle.stop().unwrap();
+        assert_eq!(artifact.path, dest);
+        assert_eq!(artifact.bytes, "fake-mov-payload".len() as u64);
+    }
+
+    #[test]
+    fn stop_errors_when_dest_never_written() {
+        // Child exits cleanly but doesn't produce the dest file — stop()
+        // should surface that as a StageFailed.
+        let tmp = tempfile::tempdir().unwrap();
+        let dest = tmp.path().join("never-written.mov");
+        let mut cmd = Command::new("/usr/bin/true");
+        let child = cmd.spawn().unwrap();
+        let handle = MacOsScreencaptureHandle {
+            dest: dest.clone(),
+            child,
+            started_at: Instant::now(),
+        };
+        match handle.stop().unwrap_err() {
+            Error::StageFailed { stage, message } => {
+                assert_eq!(stage, "record");
+                assert!(message.contains("without writing"), "got: {message}");
+            }
+            other => panic!("expected StageFailed, got {other:?}"),
+        }
+    }
+
+    fn shell_escape(s: &str) -> String {
+        s.replace('\'', "'\\''")
     }
 
     #[test]

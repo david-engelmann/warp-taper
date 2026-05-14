@@ -147,10 +147,13 @@ impl Pipeline {
         }
 
         // 2. deploy
+        //
+        // Deliberately do NOT call .capture_output() — we want the deployed
+        // binary's stdout/stderr to inherit from the parent so its output
+        // is visible to a screen capture and to the user watching the run.
+        // (Stage logs still record build output via render_build_log.)
         let deploy_started = Utc::now();
-        let deploy_handle = DeployStage::new(&build_output.binary_path)
-            .capture_output()
-            .run()?;
+        let deploy_handle = DeployStage::new(&build_output.binary_path).run()?;
         let deploy_pid = deploy_handle.pid();
         if let Some(cb) = &self.on_deploy_spawned {
             cb(deploy_pid);
@@ -206,8 +209,14 @@ impl Pipeline {
         )?;
 
         // 5. bundle
+        //
+        // Only claim a master.mov when the file actually has content. The
+        // NoOpRecorder writes a 0-byte stand-in so callers can rely on the
+        // path existing; emitting it in the README would be misleading
+        // (and would point at a "watch" link with nothing to play).
+        let has_real_mov = record_artifacts.mov_path.exists() && record_artifacts.mov_bytes > 0;
         let artifacts = BundleArtifacts {
-            has_master_mov: record_artifacts.mov_path.exists(),
+            has_master_mov: has_real_mov,
             patches: Vec::new(),
             session_log_bytes: Some(record_artifacts.session_bytes),
             mcp_logs: record_artifacts.mcp_log_names,

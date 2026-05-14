@@ -1,4 +1,10 @@
 //! Test fixtures and helpers used by warp-taper-core and warp-taper-cli tests.
 //!
-//! Empty in P0; populated as later phases land (sample tapes, golden bundles,
-//! in-process stubs for the build / deploy / record stages).
+//! Public from P3 onward as later phases add stubs (deployer, recorder,
+//! pipeline). Fixture functions write deterministic on-disk artifacts under
+//! a caller-provided temp dir and return either typed handles or paths to
+//! the produced files.
+
+pub mod cargo_project;
+
+pub use cargo_project::{tiny_warp, TinyWarp};

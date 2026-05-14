@@ -939,11 +939,15 @@ dependencies = [
  "serde_yml",
  "tempfile",
  "thiserror",
+ "warp-taper-fixtures",
 ]
 
 [[package]]
 name = "warp-taper-fixtures"
 version = "0.0.0"
+dependencies = [
+ "tempfile",
+]
 
 [[package]]
 name = "wasip2"

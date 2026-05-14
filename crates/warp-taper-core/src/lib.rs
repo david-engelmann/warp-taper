@@ -9,6 +9,7 @@ pub mod bundle;
 pub mod error;
 pub mod log_tail;
 pub mod scenario;
+pub mod stages;
 
 pub use assertion::{
     Assertion, AssertionContext, AssertionResult, EngineReport, NamedResult, Outcome,
@@ -16,3 +17,4 @@ pub use assertion::{
 pub use error::{Error, Result};
 pub use log_tail::LogTail;
 pub use scenario::{Metadata, Scenario, ScenarioBuilder};
+pub use stages::{BuildOutput, BuildProfile, BuildStage, DeployHandle, DeployStage};

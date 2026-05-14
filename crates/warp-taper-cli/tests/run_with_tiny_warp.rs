@@ -63,3 +63,32 @@ fn version_subcommand_prints_version() {
         .success()
         .stdout(contains("warp-taper"));
 }
+
+#[test]
+fn list_builtins_includes_mcp_log_rotation() {
+    Command::cargo_bin("warp-taper")
+        .unwrap()
+        .arg("list-builtins")
+        .assert()
+        .success()
+        .stdout(contains("mcp-log-rotation"));
+}
+
+#[test]
+fn run_builtin_unknown_name_errors_with_hint() {
+    let tmp = tempfile::tempdir().unwrap();
+    Command::cargo_bin("warp-taper")
+        .unwrap()
+        .arg("run-builtin")
+        .arg("not-a-real-scenario")
+        .arg("--warp-source")
+        .arg(tmp.path())
+        .arg("--tape-dir")
+        .arg(tmp.path().join("tape"))
+        .arg("--no-screencapture")
+        .arg("--duration-ms")
+        .arg("10")
+        .assert()
+        .failure()
+        .stderr(contains("unknown built-in scenario"));
+}

@@ -49,3 +49,23 @@ jobs:
         with:
           tool: nextest
       - run: cargo nextest run --workspace
+
+  coverage:
+    name: coverage gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+      # Hard floor: 85% core, 70% cli. The numbers are deliberately under
+      # current actuals (~94% / ~75%) so a small future regression doesn't
+      # tank the build, but a serious drop does.
+      - name: warp-taper-core ≥ 85% line coverage
+        run: cargo llvm-cov --package warp-taper-core --fail-under-lines 85
+      - name: warp-taper-cli ≥ 70% line coverage
+        run: cargo llvm-cov --package warp-taper-cli --fail-under-lines 70

@@ -11,6 +11,7 @@ pub mod log_tail;
 pub mod pipeline;
 pub mod recorder;
 pub mod scenario;
+pub mod scenarios;
 pub mod stages;
 
 pub use assertion::{

@@ -16,6 +16,9 @@ pub enum Error {
         stage: &'static str,
         message: String,
     },
+
+    #[error("assertion config invalid: {0}")]
+    AssertionConfig(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -48,6 +51,13 @@ mod tests {
         let rendered = format!("{err}");
         assert!(rendered.contains("build"));
         assert!(rendered.contains("cargo exited with status 1"));
+    }
+
+    #[test]
+    fn display_assertion_config_includes_reason() {
+        let err = Error::AssertionConfig("invalid regex: \\".into());
+        let rendered = format!("{err}");
+        assert!(rendered.contains("invalid regex"));
     }
 
     #[test]

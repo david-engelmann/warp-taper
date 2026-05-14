@@ -933,6 +933,7 @@ dependencies = [
  "chrono",
  "insta",
  "proptest",
+ "regex",
  "rstest",
  "serde",
  "serde_yml",

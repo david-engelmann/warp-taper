@@ -39,6 +39,14 @@ pub struct Pipeline {
     pub package: String,
     pub binary_name: String,
     pub build_timeout: Option<Duration>,
+    /// Sleep this long between the deploy spawning and the recorder
+    /// starting. Real GUI apps (e.g. warp-oss) need a moment to render
+    /// their window before screencapture can find or target it.
+    pub record_warmup: Option<Duration>,
+    /// Discover the deployed binary's window after deploy + warmup and
+    /// scope the recorder to it via `Recorder::set_window_id`. macOS-only;
+    /// no-op on other platforms (and on `NoOpRecorder`).
+    pub auto_window_id: bool,
     /// Called after `cargo build` completes with the path to the produced
     /// binary. Useful for CLI binaries that want to print progress.
     #[allow(clippy::type_complexity)]
@@ -62,6 +70,8 @@ impl Pipeline {
             package: "warp".to_string(),
             binary_name: "warp-oss".to_string(),
             build_timeout: None,
+            record_warmup: None,
+            auto_window_id: false,
             on_build_finished: None,
             on_deploy_spawned: None,
         }
@@ -102,6 +112,22 @@ impl Pipeline {
         self
     }
 
+    /// Sleep this long between deploy and recorder.start(). Gives GUI
+    /// apps a moment to render their window so screencapture can find
+    /// or target it cleanly.
+    pub fn with_record_warmup(mut self, warmup: Duration) -> Self {
+        self.record_warmup = Some(warmup);
+        self
+    }
+
+    /// After deploy + warmup, look up the deployed PID's front window
+    /// and pass it to the recorder via [`Recorder::set_window_id`].
+    /// macOS-only; on Linux/Windows this is a no-op even when enabled.
+    pub fn with_auto_window_id(mut self, enabled: bool) -> Self {
+        self.auto_window_id = enabled;
+        self
+    }
+
     pub fn with_build_finished_callback<F>(mut self, callback: F) -> Self
     where
         F: Fn(&Path) + Send + Sync + 'static,
@@ -120,7 +146,7 @@ impl Pipeline {
 
     /// Run all five stages. The returned [`Tape`] points at the on-disk
     /// bundle (README + artifacts) the recording produced.
-    pub fn run<R: Recorder>(&self, recorder: R, trigger: RecordTrigger) -> Result<Tape> {
+    pub fn run<R: Recorder>(&self, mut recorder: R, trigger: RecordTrigger) -> Result<Tape> {
         let logs_dir = self.tape_dir.join("logs");
         let mcp_logs_dir = logs_dir.join("mcp");
         let stages_dir = self.tape_dir.join("stages");
@@ -157,6 +183,26 @@ impl Pipeline {
         let deploy_pid = deploy_handle.pid();
         if let Some(cb) = &self.on_deploy_spawned {
             cb(deploy_pid);
+        }
+
+        // 2b. warmup — give the deployed GUI app time to render before
+        //     we start recording or look up its window.
+        if let Some(warmup) = self.record_warmup {
+            std::thread::sleep(warmup);
+        }
+
+        // 2c. auto-discover the deployed binary's window when asked.
+        //     macOS-only; on other platforms this is silently a no-op.
+        if self.auto_window_id {
+            #[cfg(unix)]
+            if let Some(wid) = crate::recorder::discover_window_for_pid(deploy_pid) {
+                recorder.set_window_id(wid);
+                eprintln!("warp-taper: recording scoped to window id {wid} (pid {deploy_pid})");
+            } else {
+                eprintln!(
+                    "warp-taper: --auto-window-id requested but no window found for pid {deploy_pid}; recorder will fall back to its prior configuration"
+                );
+            }
         }
 
         // 3. record — own the recording in a sub-block so we can always

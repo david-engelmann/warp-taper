@@ -132,6 +132,19 @@ struct CommonRunArgs {
     ///   osascript -e 'tell application "System Events" to id of front window of (first process whose name is "Warp")'
     #[arg(long, value_name = "ID")]
     screencapture_window_id: Option<u32>,
+
+    /// After deploy spawns, look up the deployed binary's front window and
+    /// scope the recorder to it. Recommended for real Warp builds — pair
+    /// with --record-warmup-ms so Warp has time to render its window
+    /// before discovery runs.
+    #[arg(long)]
+    auto_window_id: bool,
+
+    /// Sleep this long between deploy and recording start. Gives a GUI
+    /// app a moment to bring up its window. Required in practice for
+    /// real Warp (its window takes ~1–3s to appear).
+    #[arg(long, value_name = "MS")]
+    record_warmup_ms: Option<u64>,
 }
 
 fn parse_region(s: &str) -> warp_taper_core::Result<(u32, u32, u32, u32)> {
@@ -304,6 +317,12 @@ fn drive_pipeline(
     }
     if let Some(secs) = args.build_timeout_seconds {
         pipeline = pipeline.with_build_timeout(Duration::from_secs(secs));
+    }
+    if let Some(ms) = args.record_warmup_ms {
+        pipeline = pipeline.with_record_warmup(Duration::from_millis(ms));
+    }
+    if args.auto_window_id {
+        pipeline = pipeline.with_auto_window_id(true);
     }
 
     let trigger = match args.duration_ms {

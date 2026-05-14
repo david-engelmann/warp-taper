@@ -9,6 +9,42 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::Instant;
 
+/// Discover the CGWindowID of the front window owned by `pid` via
+/// AppleScript. Returns `None` if no process with that PID is found, if
+/// it has no visible window yet, or if AppleScript fails for any reason.
+/// Useful for finding the deployed binary's window so screencapture can
+/// be scoped to it via `with_window_id` (which emits `-l<id>`).
+pub fn discover_window_for_pid(pid: u32) -> Option<u32> {
+    // Wrap in `try ... on error ... end try` so an early-launch app
+    // (no visible window yet) returns "" rather than throwing.
+    let script = format!(
+        "tell application \"System Events\"\n\
+             try\n\
+                 set procs to (every process whose unix id is {pid})\n\
+                 if (count procs) is 0 then return \"\"\n\
+                 set wins to (windows of (item 1 of procs))\n\
+                 if (count wins) is 0 then return \"\"\n\
+                 return id of (item 1 of wins)\n\
+             on error\n\
+                 return \"\"\n\
+             end try\n\
+         end tell"
+    );
+    let output = Command::new("osascript")
+        .arg("-e")
+        .arg(&script)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if stdout.is_empty() {
+        return None;
+    }
+    stdout.parse::<u32>().ok()
+}
+
 use crate::error::{Error, Result};
 use crate::recorder::RecordingArtifact;
 

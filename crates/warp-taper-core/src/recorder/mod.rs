@@ -24,7 +24,7 @@ pub mod macos;
 pub mod noop;
 
 #[cfg(unix)]
-pub use macos::{MacOsScreencapture, MacOsScreencaptureHandle};
+pub use macos::{discover_window_for_pid, MacOsScreencapture, MacOsScreencaptureHandle};
 pub use noop::{NoOpRecorder, NoOpRecordingHandle};
 
 /// The artifact produced by `Handle::stop()`. Always points at the
@@ -42,6 +42,12 @@ pub struct RecordingArtifact {
 pub trait Recorder {
     type Handle: RecordingHandle;
     fn start(&self, dest: PathBuf) -> Result<Self::Handle>;
+
+    /// Reconfigure the recorder to capture only the given window. Default
+    /// is a no-op. The pipeline calls this between deploy and start when
+    /// `with_auto_window_id` is enabled and a window has been discovered
+    /// for the deployed binary.
+    fn set_window_id(&mut self, _window_id: u32) {}
 }
 
 pub trait RecordingHandle {
@@ -67,6 +73,9 @@ impl Recorder for MacOsScreencapture {
     fn start(&self, dest: PathBuf) -> Result<MacOsScreencaptureHandle> {
         MacOsScreencapture::start(self, dest)
     }
+    fn set_window_id(&mut self, window_id: u32) {
+        *self = std::mem::take(self).with_window_id(window_id);
+    }
 }
 
 #[cfg(unix)]
@@ -83,6 +92,27 @@ mod tests {
     fn run_via_trait<R: Recorder>(r: R, dest: PathBuf) -> Result<RecordingArtifact> {
         let handle = r.start(dest)?;
         handle.stop()
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn set_window_id_via_trait_updates_macos_recorder() {
+        use crate::recorder::macos::MacOsScreencapture;
+        let mut r: MacOsScreencapture = MacOsScreencapture::new().with_region(0, 0, 100, 100);
+        assert_eq!(r.window_id(), None);
+        // Through the trait.
+        Recorder::set_window_id(&mut r, 4242);
+        assert_eq!(r.window_id(), Some(4242));
+        // Setting window_id should have cleared the region.
+        assert_eq!(r.region(), None);
+    }
+
+    #[test]
+    fn set_window_id_default_impl_is_a_noop_on_noop_recorder() {
+        // NoOpRecorder uses the default trait impl: should compile + do
+        // nothing observable.
+        let mut r = NoOpRecorder::new();
+        Recorder::set_window_id(&mut r, 1234);
     }
 
     #[test]

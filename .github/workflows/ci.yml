@@ -63,9 +63,11 @@ jobs:
         with:
           tool: cargo-llvm-cov
       # Hard floor: 85% core, 70% cli. The numbers are deliberately under
-      # current actuals (~94% / ~75%) so a small future regression doesn't
-      # tank the build, but a serious drop does.
+      # current actuals (~86% / ~74%) so a small future regression doesn't
+      # tank the build, but a serious drop does. `--lib` scopes the measure
+      # to the library's own lines (tests/*.rs harness code is excluded —
+      # it doesn't represent product code).
       - name: warp-taper-core ≥ 85% line coverage
-        run: cargo llvm-cov --package warp-taper-core --fail-under-lines 85
+        run: cargo llvm-cov --lib --package warp-taper-core --fail-under-lines 85
       - name: warp-taper-cli ≥ 70% line coverage
         run: cargo llvm-cov --package warp-taper-cli --fail-under-lines 70

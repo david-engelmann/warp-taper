@@ -3,36 +3,47 @@
 # generate-sample-tape.sh
 #
 # Generates the artifacts checked in at docs/sample-tape/ by driving
-# warp-taper end-to-end against the synthetic demo binary at
-# scripts/demo-rotation/.
+# warp-taper end-to-end. Two modes:
 #
-# IMPORTANT — screen capture is OFF by default.
+#   • Demo mode (default)
+#       Builds and runs scripts/demo-rotation — a tiny Rust binary that
+#       simulates the LLM-log-rotation flow proposed for simple_logger
+#       in warpdotdev/warp PR #10882. Produces logs/jsonl artifacts;
+#       no master.mov (the demo binary has no GUI to record).
 #
-# Region capture (--screencapture-region X,Y,W,H) records pixels at those
-# screen coordinates regardless of which app owns them. That made an
-# earlier sample tape accidentally include a private Slack window. So this
-# script defaults to the no-op recorder and does NOT produce a master.mov.
-# To record a real .mov, pass a CGWindowID of the window you want
-# captured via WINDOW_ID; the script forwards it to warp-taper as
-# --screencapture-window-id, which uses screencapture's window-scoped
-# `-l<id>` flag. Nothing outside the chosen window can leak.
+#   • Real-Warp mode (WARP_SOURCE=/path/to/warp + AUTO_WINDOW_ID=1)
+#       Builds the Warp checkout at its current HEAD, launches warp-oss,
+#       waits for its window to render (WARP_RECORD_WARMUP_MS), then
+#       records ONLY that window via --auto-window-id (which resolves
+#       to screencapture -l<windowid>). Produces a real master.mov
+#       bounded to the Warp window's pixels.
 #
-# Discover a window's ID:
-#     osascript -e 'tell application "System Events" to id of front \
-#         window of (first process whose name is "Warp")'
+# The script never invokes --screencapture-region — region capture
+# leaks every pixel at those screen coordinates regardless of owner.
 #
 # Usage:
-#     # default — no .mov, just the logs/stages/jsonl artifacts
+#     # demo (no .mov)
 #     scripts/generate-sample-tape.sh
 #
-#     # record a specific window
-#     WINDOW_ID=12345 scripts/generate-sample-tape.sh
+#     # real warp build, captured for 30s
+#     WARP_SOURCE=$HOME/personal/warp AUTO_WINDOW_ID=1 \
+#         DEMO_DURATION_MS=30000 scripts/generate-sample-tape.sh
 #
-# Env overrides:
-#     DEMO_DURATION_MS   total recording window (default 6000)
-#     WINDOW_ID          CGWindowID to capture; enables real screen
-#                        recording. Unset = no .mov is produced.
-#     KEEP_TMP=1         keep the staging directory after the run
+# Env:
+#     WARP_SOURCE             path to a Warp checkout. Defaults to the
+#                             synthetic demo at scripts/demo-rotation/.
+#     DEMO_DURATION_MS        total recording window (default 6000)
+#     AUTO_WINDOW_ID=1        after deploy + warmup, auto-discover the
+#                             deployed binary's front window and scope
+#                             screencapture to it. Recommended for real
+#                             Warp builds.
+#     WINDOW_ID=<id>          explicit CGWindowID; overrides AUTO_WINDOW_ID.
+#                             Useful when you've already launched the app
+#                             elsewhere and just want to record it.
+#     WARP_RECORD_WARMUP_MS   ms to wait after deploy before recording
+#                             starts (default 2500). Pair with
+#                             AUTO_WINDOW_ID for GUI apps.
+#     KEEP_TMP=1              keep the staging directory after the run
 
 set -euo pipefail
 
@@ -40,6 +51,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEMO_DIR="${REPO_ROOT}/scripts/demo-rotation"
 TARGET_DIR="${REPO_ROOT}/docs/sample-tape"
 DURATION_MS="${DEMO_DURATION_MS:-6000}"
+
+# WARP_SOURCE — when set, point warp-taper at a real Warp checkout to
+# build + record. Otherwise we use the synthetic demo binary.
+PIPELINE_SOURCE="${WARP_SOURCE:-${DEMO_DIR}}"
 
 cd "${REPO_ROOT}"
 
@@ -75,12 +90,18 @@ echo "==> staging dir:  ${STAGE}"
 echo "==> warp log:     ${WARP_LOG}"
 echo "==> mcp dir:      ${MCP_DIR}"
 
+WARMUP_MS="${WARP_RECORD_WARMUP_MS:-2500}"
+
 if [[ -n "${WINDOW_ID:-}" ]]; then
     VIDEO_FLAGS=(--screencapture-window-id "${WINDOW_ID}")
     echo "==> recording window id ${WINDOW_ID}"
+elif [[ -n "${AUTO_WINDOW_ID:-}" ]]; then
+    VIDEO_FLAGS=(--auto-window-id --record-warmup-ms "${WARMUP_MS}")
+    echo "==> recording will auto-discover the deployed binary's window after ${WARMUP_MS}ms warmup"
 else
     VIDEO_FLAGS=(--no-screencapture)
-    echo "==> no WINDOW_ID set — using no-op recorder; master.mov will be empty"
+    echo "==> no WINDOW_ID and no AUTO_WINDOW_ID set — using no-op recorder; master.mov will be empty"
+    echo "    set AUTO_WINDOW_ID=1 to scope screencapture to the deployed binary's window"
 fi
 
 # The demo binary needs its env vars; pass them into the warp-taper run so
@@ -91,7 +112,7 @@ DEMO_MCP_LOG_DIR="${MCP_DIR}" \
 DEMO_DURATION_MS="${DURATION_MS}" \
 "${REPO_ROOT}/target/release/warp-taper" run \
     "${SCENARIO_DIR}" \
-    --warp-source "${DEMO_DIR}" \
+    --warp-source "${PIPELINE_SOURCE}" \
     --tape-dir "${TAPE_DIR}" \
     --warp-log "${WARP_LOG}" \
     --duration-ms "${DURATION_MS}" \
@@ -128,7 +149,7 @@ sanitize_one() {
     sed -i.bak \
         -e "s|${STAGE}|<sample-tape>|g" \
         -e "s|/private<sample-tape>|<sample-tape>|g" \
-        -e "s|${DEMO_DIR}|<demo>|g" \
+        -e "s|${PIPELINE_SOURCE}|<warp-source>|g" \
         "${f}"
     rm -f "${f}.bak"
 }

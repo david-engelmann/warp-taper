@@ -92,3 +92,92 @@ fn run_builtin_unknown_name_errors_with_hint() {
         .failure()
         .stderr(contains("unknown built-in scenario"));
 }
+
+#[test]
+fn describe_built_in_prints_scenario_metadata() {
+    Command::cargo_bin("warp-taper")
+        .unwrap()
+        .arg("describe")
+        .arg("mcp-log-rotation")
+        .assert()
+        .success()
+        .stdout(contains("slug:"))
+        .stdout(contains("mcp-log-rotation"))
+        .stdout(contains("warpdotdev/warp#10874"))
+        .stdout(contains("mcp_rotation_occurred"));
+}
+
+#[test]
+fn describe_unknown_name_errors() {
+    Command::cargo_bin("warp-taper")
+        .unwrap()
+        .arg("describe")
+        .arg("not-real")
+        .assert()
+        .failure()
+        .stderr(contains("unknown built-in scenario"));
+}
+
+#[test]
+fn init_emits_compilable_starter_module() {
+    Command::cargo_bin("warp-taper")
+        .unwrap()
+        .args([
+            "init",
+            "12345-fancy-fix",
+            "--title",
+            "Fancy fix",
+            "--ticket",
+            "owner/repo#1",
+        ])
+        .assert()
+        .success()
+        .stdout(contains("pub fn _12345_fancy_fix()"))
+        .stdout(contains("\"12345-fancy-fix\""))
+        .stdout(contains("Fancy fix"))
+        .stdout(contains(".ticket(\"owner/repo#1\")"));
+}
+
+#[test]
+#[cfg_attr(not(unix), ignore = "deploy launch is unix-only for now")]
+fn run_subcommand_with_branch_and_head_overrides() {
+    let warp_src_tmp = tempfile::tempdir().unwrap();
+    let scenario_tmp = tempfile::tempdir().unwrap();
+    let tape_tmp = tempfile::tempdir().unwrap();
+    let warp_log_tmp = tempfile::tempdir().unwrap();
+    let warp_log_path = warp_log_tmp.path().join("warp-oss.log");
+    fs::write(&warp_log_path, b"").unwrap();
+
+    let fixture = tiny_warp_with_behavior(warp_src_tmp.path(), WarpBehavior::LongLived).unwrap();
+    fs::write(scenario_tmp.path().join("metadata.yaml"), METADATA_YAML).unwrap();
+
+    Command::cargo_bin("warp-taper")
+        .unwrap()
+        .arg("run")
+        .arg(scenario_tmp.path())
+        .arg("--warp-source")
+        .arg(fixture.root())
+        .arg("--tape-dir")
+        .arg(tape_tmp.path())
+        .arg("--package")
+        .arg(fixture.package_name())
+        .arg("--binary-name")
+        .arg(fixture.binary_name())
+        .arg("--warp-log")
+        .arg(&warp_log_path)
+        .arg("--no-screencapture")
+        .arg("--duration-ms")
+        .arg("50")
+        .arg("--branch")
+        .arg("override-branch")
+        .arg("--head")
+        .arg("deadbeef99")
+        .assert()
+        .success();
+
+    let readme = fs::read_to_string(tape_tmp.path().join("README.md")).unwrap();
+    assert!(
+        readme.contains("`override-branch` @ `deadbeef99`"),
+        "got: {readme}"
+    );
+}

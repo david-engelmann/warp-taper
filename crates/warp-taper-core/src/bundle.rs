@@ -21,7 +21,7 @@ pub struct BundleInputs<'a> {
     pub recorded_at: DateTime<Utc>,
     pub eval_status: &'a str,
     pub artifacts: BundleArtifacts,
-    pub stage_logs: Vec<StageLog<'a>>,
+    pub stage_logs: Vec<StageLog>,
     pub assertion_summary: Vec<String>,
 }
 
@@ -43,9 +43,18 @@ impl BundleArtifacts {
 }
 
 #[derive(Debug, Clone)]
-pub struct StageLog<'a> {
-    pub name: &'a str,
-    pub tail: &'a str,
+pub struct StageLog {
+    pub name: String,
+    pub tail: String,
+}
+
+impl StageLog {
+    pub fn new(name: impl Into<String>, tail: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            tail: tail.into(),
+        }
+    }
 }
 
 pub fn render_readme(inputs: &BundleInputs) -> String {
@@ -226,14 +235,8 @@ mod tests {
                 mcp_logs: vec!["0d6c1e2a-mcp.log".into()],
             },
             stage_logs: vec![
-                StageLog {
-                    name: "01-build.log",
-                    tail: "warp-taper :: build\n    finished: ok",
-                },
-                StageLog {
-                    name: "04-evaluate.log",
-                    tail: "evaluate: pass",
-                },
+                StageLog::new("01-build.log", "warp-taper :: build\n    finished: ok"),
+                StageLog::new("04-evaluate.log", "evaluate: pass"),
             ],
             assertion_summary: vec![
                 "  ✓ MCP log snapshot captured (6 files)".into(),

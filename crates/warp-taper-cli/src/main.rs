@@ -110,6 +110,50 @@ struct CommonRunArgs {
     /// Override the detected head SHA (defaults to `git -C <warp-source> rev-parse --short HEAD`).
     #[arg(long)]
     head: Option<String>,
+
+    /// Pre-specify the screencapture rect as `X,Y,W,H` (in display points).
+    /// Skips screencapture's interactive region picker. macOS only; ignored
+    /// in --no-screencapture mode.
+    ///
+    /// **Privacy note:** region capture records pixels at the chosen
+    /// screen coordinates regardless of which app owns them. Anything
+    /// else visible in that rectangle ends up in the .mov. Prefer
+    /// --screencapture-window-id, which records only the target window's
+    /// content.
+    #[arg(
+        long,
+        value_name = "X,Y,W,H",
+        conflicts_with = "screencapture_window_id"
+    )]
+    screencapture_region: Option<String>,
+
+    /// CGWindowID of the window to record. Discover it for a running app via:
+    ///
+    ///   osascript -e 'tell application "System Events" to id of front window of (first process whose name is "Warp")'
+    #[arg(long, value_name = "ID")]
+    screencapture_window_id: Option<u32>,
+}
+
+fn parse_region(s: &str) -> warp_taper_core::Result<(u32, u32, u32, u32)> {
+    let parts: Vec<&str> = s.split(',').map(str::trim).collect();
+    if parts.len() != 4 {
+        return Err(warp_taper_core::Error::ScenarioInvalid(format!(
+            "--screencapture-region must be X,Y,W,H; got {s:?}"
+        )));
+    }
+    let parse = |label: &str, raw: &str| -> warp_taper_core::Result<u32> {
+        raw.parse::<u32>().map_err(|e| {
+            warp_taper_core::Error::ScenarioInvalid(format!(
+                "--screencapture-region {label} component {raw:?}: {e}"
+            ))
+        })
+    };
+    Ok((
+        parse("x", parts[0])?,
+        parse("y", parts[1])?,
+        parse("w", parts[2])?,
+        parse("h", parts[3])?,
+    ))
 }
 
 fn main() -> std::process::ExitCode {
@@ -267,10 +311,25 @@ fn drive_pipeline(
         None => RecordTrigger::Interactive,
     };
 
+    let region = match args.screencapture_region.as_deref() {
+        Some(s) => Some(parse_region(s)?),
+        None => None,
+    };
+    let window_id = args.screencapture_window_id;
+    // Configure screencapture's own -V to match our wait window when we
+    // know it. Otherwise screencapture runs to its 600s default and our
+    // stop() has to signal it (which can lose the .mov).
+    let recorder_max_duration_secs = args.duration_ms.map(|ms| ms.div_ceil(1000).max(1));
     let tape = if args.no_screencapture {
         pipeline.run(NoOpRecorder::new(), trigger)?
     } else {
-        run_with_real_recorder(&pipeline, trigger)?
+        run_with_real_recorder(
+            &pipeline,
+            trigger,
+            region,
+            window_id,
+            recorder_max_duration_secs,
+        )?
     };
 
     eprintln!("warp-taper: tape at {}", tape.dir.display());
@@ -285,14 +344,29 @@ fn drive_pipeline(
 fn run_with_real_recorder(
     pipeline: &Pipeline,
     trigger: RecordTrigger,
+    region: Option<(u32, u32, u32, u32)>,
+    window_id: Option<u32>,
+    max_duration_secs: Option<u64>,
 ) -> warp_taper_core::Result<warp_taper_core::Tape> {
-    pipeline.run(warp_taper_core::MacOsScreencapture::new(), trigger)
+    let mut recorder = warp_taper_core::MacOsScreencapture::new();
+    if let Some(secs) = max_duration_secs {
+        recorder = recorder.with_max_duration_seconds(secs);
+    }
+    if let Some(id) = window_id {
+        recorder = recorder.with_window_id(id);
+    } else if let Some((x, y, w, h)) = region {
+        recorder = recorder.with_region(x, y, w, h);
+    }
+    pipeline.run(recorder, trigger)
 }
 
 #[cfg(not(target_os = "macos"))]
 fn run_with_real_recorder(
     pipeline: &Pipeline,
     trigger: RecordTrigger,
+    _region: Option<(u32, u32, u32, u32)>,
+    _window_id: Option<u32>,
+    _max_duration_secs: Option<u64>,
 ) -> warp_taper_core::Result<warp_taper_core::Tape> {
     eprintln!("warp-taper: no real recorder on this platform; falling back to no-op.");
     pipeline.run(NoOpRecorder::new(), trigger)

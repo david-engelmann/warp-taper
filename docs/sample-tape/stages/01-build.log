@@ -1,0 +1,7 @@
+build: cargo build started at 2026-05-14T17:24:26Z
+build: duration 58.18225ms
+build: produced binary <demo>/target/debug/warp-oss
+--- cargo stdout ---
+
+--- cargo stderr ---
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.02s

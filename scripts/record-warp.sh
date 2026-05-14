@@ -3,9 +3,14 @@
 # record-warp.sh
 #
 # Records a video of *your currently-running Warp window* and lands it at
-# docs/sample-tape/master.mov. Bounded strictly to Warp's window via
-# screencapture's -l<windowid> flag — nothing outside Warp's pixels can
-# enter the .mov.
+# docs/sample-tape/master.mov. Uses ScreenCaptureKit (via the Swift
+# helper at scripts/record-window.swift) to capture the window's own
+# backing buffer — overlapping apps and notifications cannot enter the
+# .mov even if they're on top of Warp during the recording.
+#
+# This is intentionally different from `screencapture -v -l<id>`, which
+# captures the screen region at the window's coordinates and so picks up
+# whatever is rendered there (overlapping apps included).
 #
 # Workflow:
 #   1. Open the Warp window you want to record (build from any commit;
@@ -40,49 +45,28 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
     exit 1
 fi
 
-echo "==> looking for the front window of process \"${PROC_NAME}\""
-WID=$(osascript <<EOF
-tell application "System Events"
-    try
-        set procs to (every process whose name is "${PROC_NAME}")
-        if (count procs) is 0 then return ""
-        set wins to (windows of (item 1 of procs))
-        if (count wins) is 0 then return ""
-        return id of (item 1 of wins)
-    on error
-        return ""
-    end try
-end tell
-EOF
-)
-WID="$(echo "${WID}" | tr -d '[:space:]')"
-
-if [[ -z "${WID}" ]]; then
-    echo "record-warp.sh: no visible window found for process \"${PROC_NAME}\"." >&2
-    echo "  - Is the app open?" >&2
-    echo "  - If you launched warp-oss directly (not via Warp.app), try PROC_NAME=warp-oss." >&2
-    echo "  - Run \`osascript -e 'tell application \"System Events\" to get name of every process whose visible is true'\`" >&2
-    echo "    to see the names macOS knows your app by." >&2
+SWIFT_RECORDER="${REPO_ROOT}/scripts/record-window.swift"
+if [[ ! -f "${SWIFT_RECORDER}" ]]; then
+    echo "record-warp.sh: missing ${SWIFT_RECORDER}." >&2
     exit 1
 fi
 
-echo "==> found window id ${WID}"
 mkdir -p "$(dirname "${OUTPUT}")"
 rm -f "${OUTPUT}"
 
-echo "==> recording ${DURATION_S}s. starting in:"
+echo "==> recording ${PROC_NAME}'s window for ${DURATION_S}s using ScreenCaptureKit."
+echo "    interact with the window during the recording (idle windows compress to almost nothing)."
+echo "    starting in:"
 for i in 3 2 1; do
     echo "    ${i}..."
     sleep 1
 done
-echo "==> RECORDING (do not switch focus away from the Warp window)"
 
-# `-l<id>` is window-scoped: only the chosen window's pixels are
-# captured, even if other apps overlap it. Safe by construction.
-screencapture -v -V "${DURATION_S}" -l"${WID}" "${OUTPUT}"
+# Window-buffer capture — no screen region involved.
+swift "${SWIFT_RECORDER}" "${PROC_NAME}" "${DURATION_S}" "${OUTPUT}"
 
 if [[ ! -s "${OUTPUT}" ]]; then
-    echo "record-warp.sh: screencapture exited but produced no bytes at ${OUTPUT}." >&2
+    echo "record-warp.sh: recorder exited but produced no bytes at ${OUTPUT}." >&2
     echo "  - Is Screen Recording permission granted to the terminal running this script?" >&2
     exit 1
 fi
@@ -92,6 +76,10 @@ echo
 echo "wrote ${OUTPUT}"
 echo "  size: ${BYTES} bytes"
 echo
-echo "To embed in README.md (GitHub renders <video> inline on the rendered file view):"
+echo "Tip: a static (no-interaction) recording can be only a few KB — ScreenCaptureKit emits"
+echo "frames only when content changes. If the file feels too small, re-record while typing"
+echo "or running a command in the Warp window."
+echo
+echo "Embed in README.md:"
 echo
 echo "    <video src=\"docs/sample-tape/master.mov\" controls width=\"720\"></video>"

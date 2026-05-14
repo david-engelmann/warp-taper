@@ -3,6 +3,10 @@
 tapes/*
 !tapes/.gitkeep
 
+# Rust build artifacts
+target/
+**/*.rs.bk
+
 # macOS noise
 .DS_Store
 

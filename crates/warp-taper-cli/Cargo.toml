@@ -1,0 +1,16 @@
+[package]
+name = "warp-taper-cli"
+description = "CLI front-end for warp-taper-core."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "warp-taper"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+warp-taper-core = { path = "../warp-taper-core" }

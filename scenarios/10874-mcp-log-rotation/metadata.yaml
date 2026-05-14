@@ -1,0 +1,12 @@
+title: "MCP server log files rotate at the configured size cap"
+ticket: "warpdotdev/warp#7723 (fix in PR #10874)"
+expected: |
+  After enough log volume crosses the rotation threshold, the MCP server's log
+  directory contains rotated copies (`<uuid>.log.1`, `<uuid>.log.2`, ...) and
+  the active log file has been reset to a fresh, smaller size. Without this
+  fix the active log would grow without bound.
+
+# Files in the MCP log directory we want to keep alongside the recording so the
+# evaluation can grep for rotation evidence after the session ends.
+mcp_log_paths:
+  - ~/Library/Group Containers/2BBY89MBSN.dev.warp/Library/Application Support/dev.warp.Warp-Stable/mcp

@@ -1,0 +1,16 @@
+# Tape output bundles are generated, not source. Keep the directory but ignore
+# its contents (a sample bundle that's committed lives in docs/sample-tape/).
+tapes/*
+!tapes/.gitkeep
+
+# macOS noise
+.DS_Store
+
+# Editor noise
+*.swp
+.vscode/
+.idea/
+
+# In-flight recording state — never useful in a commit
+.recording/
+*.mov.tmp

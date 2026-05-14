@@ -1,8 +1,8 @@
 # warp-taper
 
-https://github.com/david-engelmann/warp-taper/raw/main/docs/sample-tape/master.mov
+https://github.com/david-engelmann/warp-taper/raw/main/docs/sample-tape/master.mp4
 
-> The recording above is `docs/sample-tape/master.mov` — produced by
+> The recording above is `docs/sample-tape/master.mp4` — produced by
 > `scripts/record-warp-demo.sh`, which drives Warp via `CGEventPost`
 > (Playwright-style) while ScreenCaptureKit captures Warp's window
 > buffer. The demo binary scrolling inside Warp simulates the LLM-driven

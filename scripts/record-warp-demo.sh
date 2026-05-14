@@ -76,8 +76,20 @@ if [[ ! -s "${OUTPUT}" ]]; then
 fi
 
 BYTES="$(wc -c <"${OUTPUT}" | tr -d ' ')"
-echo
 echo "wrote ${OUTPUT} (${BYTES} bytes)"
+
+# Browsers (Chrome / Firefox / Edge) don't reliably play .mov inline on
+# GitHub's rendered README, even from raw URLs. Remux the H.264 stream
+# into an .mp4 container (no re-encode) so the README's bare-URL embed
+# works in every browser.
+MP4_OUTPUT="${OUTPUT%.mov}.mp4"
+if [[ "${MP4_OUTPUT}" != "${OUTPUT}" ]]; then
+    echo "==> remuxing to ${MP4_OUTPUT} for cross-browser playback"
+    swift "${REPO_ROOT}/scripts/mov-to-mp4.swift" "${OUTPUT}" "${MP4_OUTPUT}" >/dev/null
+    MP4_BYTES="$(wc -c <"${MP4_OUTPUT}" | tr -d ' ')"
+    echo "wrote ${MP4_OUTPUT} (${MP4_BYTES} bytes)"
+fi
+
 echo
-echo "Embed in README.md:"
-echo "    <video src=\"docs/sample-tape/master.mov\" controls width=\"720\"></video>"
+echo "Embed in README.md (bare URL — GitHub renders an inline player):"
+echo "    https://github.com/david-engelmann/warp-taper/raw/main/docs/sample-tape/master.mp4"

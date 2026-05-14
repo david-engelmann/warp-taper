@@ -360,40 +360,44 @@ fn render_scenario_template(slug: &str, title: &str, ticket: Option<&str>) -> St
         ident.insert(0, '_');
     }
     let ticket_line = match ticket {
-        Some(t) => format!("        .ticket(\"{t}\")\n"),
-        None => "        // .ticket(\"owner/repo#NNN\")\n".to_string(),
+        Some(t) => format!("        .ticket(\"{t}\")"),
+        None => "        // .ticket(\"owner/repo#NNN\")".to_string(),
     };
-    format!(
-        "//! Built-in scenario: {title}.\n\
-\n\
-use crate::assertion::{{Assertion, McpLogSnapshotCaptured}};\n\
-use crate::error::Result;\n\
-use crate::scenario::Scenario;\n\
-use crate::scenarios::Builtin;\n\
-\n\
-pub fn {ident}() -> Result<Builtin> {{\n\
-    let scenario = Scenario::builder(\"{slug}\")\n\
-        .title(\"{title}\")\n\
-{ticket_line}        .expected(\"TODO: describe the expected behavior\")\n\
-        .build()?;\n\
-\n\
-    let assertions: Vec<Box<dyn Assertion>> = vec![\n\
-        Box::new(McpLogSnapshotCaptured),\n\
-    ];\n\
-\n\
-    Ok((scenario, assertions))\n\
-}}\n\
-\n\
-#[cfg(test)]\n\
-mod tests {{\n\
-    use super::*;\n\
-\n\
-    #[test]\n\
-    fn builds() {{\n\
-        {ident}().unwrap();\n\
-    }}\n\
-}}\n"
-    )
+    let body = [
+        format!("//! Built-in scenario: {title}."),
+        String::new(),
+        "use crate::assertion::{Assertion, McpLogSnapshotCaptured};".to_string(),
+        "use crate::error::Result;".to_string(),
+        "use crate::scenario::Scenario;".to_string(),
+        "use crate::scenarios::Builtin;".to_string(),
+        String::new(),
+        format!("pub fn {ident}() -> Result<Builtin> {{"),
+        format!("    let scenario = Scenario::builder(\"{slug}\")"),
+        format!("        .title(\"{title}\")"),
+        ticket_line,
+        "        .expected(\"TODO: describe the expected behavior\")".to_string(),
+        "        .build()?;".to_string(),
+        String::new(),
+        "    let assertions: Vec<Box<dyn Assertion>> = vec![".to_string(),
+        "        Box::new(McpLogSnapshotCaptured),".to_string(),
+        "    ];".to_string(),
+        String::new(),
+        "    Ok((scenario, assertions))".to_string(),
+        "}".to_string(),
+        String::new(),
+        "#[cfg(test)]".to_string(),
+        "mod tests {".to_string(),
+        "    use super::*;".to_string(),
+        String::new(),
+        "    #[test]".to_string(),
+        "    fn builds() {".to_string(),
+        format!("        {ident}().unwrap();"),
+        "    }".to_string(),
+        "}".to_string(),
+    ];
+    let mut out = body.join("\n");
+    out.push('\n');
+    out
 }
 
 #[cfg(test)]

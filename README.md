@@ -161,9 +161,30 @@ The matching summary record:
 
 (With LM Studio running, `source` would be `"lm-studio"` and the summary would come from the local model instead of the canned fallback.)
 
-### Why isn't `master.mov` checked in?
+### Recording the Warp window
 
-We deliberately do **not** commit a screen recording with the sample tape. An earlier version of this sample used `--screencapture-region` against fixed coordinates, which records every app whose window overlaps that rectangle — that produced a .mov containing a private chat window, which is not OK to publish. The fix is to record by **window-id** instead.
+<!-- Replace src with the real file once you've run scripts/record-warp.sh. -->
+<!-- GitHub renders <video> inline on the rendered README page. -->
+<video src="docs/sample-tape/master.mov" controls width="720"></video>
+
+The fastest way to record your Warp window — bounded strictly to Warp's pixels, no risk of capturing other apps — is the helper at [`scripts/record-warp.sh`](scripts/record-warp.sh):
+
+```sh
+# 1. Open Warp showing what you want demonstrated.
+# 2. From another terminal:
+scripts/record-warp.sh
+
+# Optional overrides:
+DURATION_S=12 scripts/record-warp.sh
+PROC_NAME=warp-oss scripts/record-warp.sh    # if you launched the bare binary
+OUTPUT=/tmp/warp.mov scripts/record-warp.sh
+```
+
+The script counts down 3 seconds, then runs `screencapture -l<windowid>` for `DURATION_S` seconds (default 8). The window-id comes from `osascript` so the capture is always scoped to Warp's window even if other apps overlap.
+
+### Why isn't `master.mov` checked in by the sample-tape generator?
+
+The sample-tape generator does **not** commit a screen recording by default. An earlier version used `--screencapture-region` against fixed screen coordinates, which records every app whose window overlaps that rectangle — that produced a .mov containing a private chat window, which is not OK to publish. The fix is to record by **window-id** instead.
 
 To produce a real `master.mov` against a specific window of your choice:
 

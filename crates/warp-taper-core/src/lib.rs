@@ -8,6 +8,7 @@ pub mod assertion;
 pub mod bundle;
 pub mod error;
 pub mod log_tail;
+pub mod pipeline;
 pub mod recorder;
 pub mod scenario;
 pub mod stages;
@@ -17,8 +18,11 @@ pub use assertion::{
 };
 pub use error::{Error, Result};
 pub use log_tail::LogTail;
+pub use pipeline::{Pipeline, RecordTrigger, Tape};
 #[cfg(unix)]
 pub use recorder::{MacOsScreencapture, MacOsScreencaptureHandle};
-pub use recorder::{NoOpRecorder, NoOpRecordingHandle, RecordingArtifact};
+pub use recorder::{
+    NoOpRecorder, NoOpRecordingHandle, Recorder, RecordingArtifact, RecordingHandle,
+};
 pub use scenario::{Metadata, Scenario, ScenarioBuilder};
 pub use stages::{BuildOutput, BuildProfile, BuildStage, DeployHandle, DeployStage};

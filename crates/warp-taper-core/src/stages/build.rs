@@ -1,8 +1,11 @@
 //! Build stage — wraps `cargo build -p <package>` against a Warp checkout.
 
+use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
+
+use wait_timeout::ChildExt;
 
 use crate::error::{Error, Result};
 
@@ -36,6 +39,7 @@ pub struct BuildStage {
     profile: BuildProfile,
     cargo_path: PathBuf,
     extra_args: Vec<String>,
+    timeout: Option<Duration>,
 }
 
 #[derive(Debug, Clone)]
@@ -58,6 +62,7 @@ impl BuildStage {
             profile: BuildProfile::Debug,
             cargo_path: PathBuf::from("cargo"),
             extra_args: Vec::new(),
+            timeout: None,
         }
     }
 
@@ -84,6 +89,20 @@ impl BuildStage {
     pub fn with_extra_args(mut self, args: Vec<String>) -> Self {
         self.extra_args = args;
         self
+    }
+
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = Some(timeout);
+        self
+    }
+
+    pub fn with_timeout_opt(mut self, timeout: Option<Duration>) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    pub fn timeout(&self) -> Option<Duration> {
+        self.timeout
     }
 
     pub fn warp_source(&self) -> &Path {
@@ -139,16 +158,22 @@ impl BuildStage {
         }
 
         let started = Instant::now();
-        let output = self.command().output().map_err(Error::Io)?;
+        let (status, stdout, stderr) = match self.timeout {
+            None => {
+                let output = self.command().output().map_err(Error::Io)?;
+                (output.status, output.stdout, output.stderr)
+            }
+            Some(t) => spawn_and_wait_with_timeout(self.command(), t)?,
+        };
         let duration = started.elapsed();
 
-        if !output.status.success() {
+        if !status.success() {
             return Err(Error::StageFailed {
                 stage: "build",
                 message: format!(
                     "cargo exited with status {}: {}",
-                    output.status,
-                    String::from_utf8_lossy(&output.stderr).trim()
+                    status,
+                    String::from_utf8_lossy(&stderr).trim()
                 ),
             });
         }
@@ -166,10 +191,40 @@ impl BuildStage {
 
         Ok(BuildOutput {
             binary_path,
-            stdout: output.stdout,
-            stderr: output.stderr,
+            stdout,
+            stderr,
             duration,
         })
+    }
+}
+
+fn spawn_and_wait_with_timeout(
+    mut cmd: Command,
+    timeout: Duration,
+) -> Result<(std::process::ExitStatus, Vec<u8>, Vec<u8>)> {
+    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = cmd.spawn().map_err(Error::Io)?;
+
+    match child.wait_timeout(timeout).map_err(Error::Io)? {
+        Some(status) => {
+            let mut stdout = Vec::new();
+            let mut stderr = Vec::new();
+            if let Some(mut s) = child.stdout.take() {
+                let _ = s.read_to_end(&mut stdout);
+            }
+            if let Some(mut s) = child.stderr.take() {
+                let _ = s.read_to_end(&mut stderr);
+            }
+            Ok((status, stdout, stderr))
+        }
+        None => {
+            let _ = child.kill();
+            let _ = child.wait();
+            Err(Error::StageFailed {
+                stage: "build",
+                message: format!("cargo build exceeded timeout of {timeout:?}"),
+            })
+        }
     }
 }
 
@@ -248,5 +303,50 @@ mod tests {
     fn with_cargo_path_routes_invocation_to_chosen_binary() {
         let stage = BuildStage::new("/x/warp").with_cargo_path("/usr/local/bin/cargo");
         assert_eq!(stage.command().get_program(), "/usr/local/bin/cargo");
+    }
+
+    #[test]
+    fn with_timeout_stores_the_duration() {
+        let stage = BuildStage::new("/x/warp").with_timeout(Duration::from_secs(42));
+        assert_eq!(stage.timeout(), Some(Duration::from_secs(42)));
+    }
+
+    #[test]
+    fn with_timeout_opt_passes_through_none() {
+        let stage = BuildStage::new("/x/warp").with_timeout_opt(None);
+        assert_eq!(stage.timeout(), None);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn spawn_and_wait_with_timeout_kills_long_running_child() {
+        let mut cmd = Command::new("/bin/sleep");
+        cmd.arg("5");
+        let started = Instant::now();
+        let err = spawn_and_wait_with_timeout(cmd, Duration::from_millis(100)).unwrap_err();
+        let elapsed = started.elapsed();
+
+        assert!(
+            elapsed < Duration::from_secs(3),
+            "timeout didn't fire fast enough: {elapsed:?}"
+        );
+        match err {
+            Error::StageFailed { stage, message } => {
+                assert_eq!(stage, "build");
+                assert!(message.contains("exceeded timeout"), "got: {message}");
+            }
+            other => panic!("expected StageFailed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn spawn_and_wait_with_timeout_returns_quick_exit() {
+        let mut cmd = Command::new("/bin/echo");
+        cmd.arg("hi");
+        let (status, stdout, _stderr) =
+            spawn_and_wait_with_timeout(cmd, Duration::from_secs(5)).unwrap();
+        assert!(status.success());
+        assert_eq!(String::from_utf8_lossy(&stdout).trim(), "hi");
     }
 }

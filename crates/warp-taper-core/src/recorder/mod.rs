@@ -75,3 +75,24 @@ impl RecordingHandle for MacOsScreencaptureHandle {
         MacOsScreencaptureHandle::stop(self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn run_via_trait<R: Recorder>(r: R, dest: PathBuf) -> Result<RecordingArtifact> {
+        let handle = r.start(dest)?;
+        handle.stop()
+    }
+
+    #[test]
+    fn noop_recorder_round_trips_through_trait_api() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dest = tmp.path().join("out.mov");
+
+        let artifact = run_via_trait(NoOpRecorder::new(), dest.clone()).unwrap();
+        assert_eq!(artifact.path, dest);
+        assert_eq!(artifact.bytes, 0);
+        assert!(dest.is_file());
+    }
+}

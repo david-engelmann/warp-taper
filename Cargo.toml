@@ -18,6 +18,8 @@ serde_yml = "0.0.12"
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 regex = "1"
 libc = "0.2"
+wait-timeout = "0.2"
+ctrlc = "3"
 
 # Dev-only
 tempfile = "3"

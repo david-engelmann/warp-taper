@@ -68,6 +68,17 @@ fn full_pipeline_runs_against_tiny_warp() {
     assert!(tape.dir.join("logs/warp-oss.session.log").is_file());
     assert!(tape.dir.join("logs/mcp").is_dir());
 
+    // Stage logs were written and embedded in the README.
+    let stages_dir = tape.dir.join("stages");
+    assert!(stages_dir.is_dir(), "stages/ dir missing");
+    assert!(stages_dir.join("01-build.log").is_file());
+    assert!(stages_dir.join("02-deploy.log").is_file());
+    assert!(stages_dir.join("03-record.log").is_file());
+    assert!(stages_dir.join("04-evaluate.log").is_file());
+    assert!(readme.contains("## Stages"));
+    assert!(readme.contains("01-build.log"));
+    assert!(readme.contains("04-evaluate.log"));
+
     // The mcp snapshot is empty (scenario has no mcp_log_paths) so that
     // assertion fails; the master.mov assertion passes. So overall fails.
     assert_eq!(tape.evaluation.pass_count, 1);

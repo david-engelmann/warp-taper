@@ -14,6 +14,15 @@ serde_yml = { workspace = true }
 chrono = { workspace = true }
 regex = { workspace = true }
 
+[target.'cfg(unix)'.dependencies]
+libc = { workspace = true }
+
+[features]
+default = []
+# Opt-in tests that drive macOS `screencapture` for real. Off in CI;
+# enable locally with `cargo test --features smoke -- --ignored`.
+smoke = []
+
 [dev-dependencies]
 tempfile = { workspace = true }
 insta = { workspace = true }

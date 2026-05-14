@@ -19,3 +19,4 @@ tempfile = { workspace = true }
 insta = { workspace = true }
 proptest = { workspace = true }
 rstest = { workspace = true }
+warp-taper-fixtures = { path = "../warp-taper-fixtures" }

@@ -76,6 +76,35 @@ impl Assertion for MyAssertion {
 }
 ```
 
+## Priming warp-oss with your Warp auth (macOS)
+
+The pipeline's `deploy` stage launches a `warp-oss` binary built from
+`$WARP_SOURCE`. Because warp-oss uses a different bundle ID
+(`dev.warp.WarpOss`) than the public Warp release
+(`dev.warp.Warp-Stable`), it starts out with an empty keychain and no
+logged-in user — most agent-side code paths are gated on auth and stay
+dark, which makes evidence capture for any PR that touches them awkward.
+
+[`scripts/prime-warp-oss-auth.sh`](scripts/prime-warp-oss-auth.sh) copies
+the `User` keychain entry from `dev.warp.Warp-Stable` to
+`dev.warp.WarpOss` so warp-oss boots as the same Firebase user as your
+day-to-day Warp install. After running it once, `warp-taper run …`
+exercises the same authenticated code paths Warp-Stable does.
+
+```sh
+# defaults work for a standard Warp release + locally-built warp-oss
+bash scripts/prime-warp-oss-auth.sh
+
+# clean up when you're done
+security delete-generic-password -s dev.warp.WarpOss -a User
+```
+
+Override the defaults via env vars if your install differs; see
+[`scripts/prime-warp-oss-auth.env.sample`](scripts/prime-warp-oss-auth.env.sample)
+for the expected shape. **Never commit a file with real keychain
+values or tokens** — the helper reads the keychain directly and never
+needs them on disk.
+
 ## CI gates
 
 Every PR must pass:

@@ -1,0 +1,35 @@
+{
+  "name": "9853-mcp-fresh-conversation",
+  "target_process": "warp-oss",
+  "_purpose": "Evidence for warpdotdev/warp#9853: a globally configured file-based MCP server (~/.warp-oss/.mcp.json) is visible to the Warp agent in a fresh conversation, before any terminal command has been run. The agent should call the proof-mcp 'whoami' tool and the recipe approves the Run gate so the tool's return value renders on screen.",
+  "_safety": "Every typing/clicking step is preceded by `expect_text` anchors. `abort_if_text` patterns target shell-history dropdown content (the empirical leak surface), not the always-visible search-bar chrome. `click_text` hard-fails if OCR can't find the target — never blind-clicks.",
+  "steps": [
+    {"op": "activate"},
+    {"op": "wait", "ms": 1500},
+
+    {"op": "expect_text", "regex": "Warp anything", "timeout_ms": 8000},
+
+    {"op": "abort_if_text", "regex": "\\b(cd \\.\\.|git clone|source /Applications)"},
+
+    {"op": "click_text", "regex": "Warp anything"},
+    {"op": "wait", "ms": 600},
+
+    {"op": "abort_if_text", "regex": "\\b(cd \\.\\.|git clone|source /Applications)"},
+
+    {"op": "type", "text": "use the whoami tool from proof-mcp"},
+    {"op": "wait", "ms": 300},
+    {"op": "press", "key": "escape"},
+    {"op": "wait", "ms": 100},
+    {"op": "press", "key": "return"},
+
+    {"op": "expect_text", "regex": "(OK if I call this MCP tool|MCP Tool: whoami)", "timeout_ms": 25000},
+    {"op": "wait", "ms": 600},
+
+    {"op": "press", "key": "return"},
+
+    {"op": "expect_text", "regex": "proof-mcp:warp#9853:david-engelmann", "timeout_ms": 20000},
+    {"op": "wait", "ms": 1500},
+
+    {"op": "screenshot", "path": "/tmp/9853-final-frame.png"}
+  ]
+}

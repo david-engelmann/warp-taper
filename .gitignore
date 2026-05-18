@@ -19,3 +19,10 @@ scripts/demo-rotation/Cargo.lock
 # In-flight recording state — never useful in a commit
 .recording/
 *.mov.tmp
+
+# Local env overrides. Real values (keys, tokens, machine-specific
+# paths) belong here and out of the repo. .sample files committed
+# alongside the consuming scripts document the expected shape.
+.env
+*.env
+!*.env.sample

@@ -79,10 +79,15 @@ enum Step {
     case expectText(regex: String, timeoutMs: Int)
     case abortIfText(regex: String)
     case clickText(regex: String)
+    case clickOffsetFromText(regex: String, dx: Double, dy: Double)
     case clickAt(x: Double, y: Double)
+    case clickAtIfText(regex: String, x: Double, y: Double)
+    case clickAtIfNotText(regex: String, x: Double, y: Double)
     case type(text: String)
     case press(key: String)
     case chord(mods: [String], key: String)
+    case osChord(mods: [String], key: String)
+    case osKeyCode(code: Int, mods: [String])
     case pasteText(text: String)
     case resizeWindow(x: Int, y: Int, width: Int, height: Int)
     case screenshot(path: String)
@@ -90,7 +95,7 @@ enum Step {
 
 extension Step: Decodable {
     private enum Keys: String, CodingKey {
-        case op, regex, ms, text, key, mods, path, timeout_ms, x, y, width, height
+        case op, regex, ms, text, key, code, mods, path, timeout_ms, x, y, dx, dy, width, height
     }
 
     init(from decoder: Decoder) throws {
@@ -109,8 +114,23 @@ extension Step: Decodable {
             self = .abortIfText(regex: try c.decode(String.self, forKey: .regex))
         case "click_text":
             self = .clickText(regex: try c.decode(String.self, forKey: .regex))
+        case "click_offset_from_text":
+            self = .clickOffsetFromText(
+                regex: try c.decode(String.self, forKey: .regex),
+                dx: try c.decode(Double.self, forKey: .dx),
+                dy: try c.decodeIfPresent(Double.self, forKey: .dy) ?? 0)
         case "click_at":
             self = .clickAt(
+                x: try c.decode(Double.self, forKey: .x),
+                y: try c.decode(Double.self, forKey: .y))
+        case "click_at_if_text":
+            self = .clickAtIfText(
+                regex: try c.decode(String.self, forKey: .regex),
+                x: try c.decode(Double.self, forKey: .x),
+                y: try c.decode(Double.self, forKey: .y))
+        case "click_at_if_not_text":
+            self = .clickAtIfNotText(
+                regex: try c.decode(String.self, forKey: .regex),
                 x: try c.decode(Double.self, forKey: .x),
                 y: try c.decode(Double.self, forKey: .y))
         case "type":
@@ -121,6 +141,14 @@ extension Step: Decodable {
             self = .chord(
                 mods: try c.decode([String].self, forKey: .mods),
                 key: try c.decode(String.self, forKey: .key))
+        case "os_chord":
+            self = .osChord(
+                mods: try c.decode([String].self, forKey: .mods),
+                key: try c.decode(String.self, forKey: .key))
+        case "os_key_code":
+            self = .osKeyCode(
+                code: try c.decode(Int.self, forKey: .code),
+                mods: try c.decodeIfPresent([String].self, forKey: .mods) ?? [])
         case "paste_text":
             self = .pasteText(text: try c.decode(String.self, forKey: .text))
         case "resize_window":
@@ -281,6 +309,12 @@ let namedKeys: [String: CGKeyCode] = [
     "a": 0,
     "c": 8,
     "w": 13,
+    "f": 3,
+    ",": 43,
+    "comma": 43,
+    ".": 47,
+    "period": 47,
+    "slash": 44,
 ]
 
 func cgFlags(for mods: [String]) -> CGEventFlags {
@@ -345,17 +379,83 @@ func clickAtScreen(_ p: CGPoint) {
 // MARK: - Activation
 
 func activate(processName: String) -> Bool {
-    guard
-        let app = NSWorkspace.shared.runningApplications.first(where: {
-            $0.localizedName == processName
-        })
-    else {
-        info("no running process named '\(processName)'")
+    // Force frontmost via AppleScript — NSWorkspace.activate() alone is
+    // unreliable enough that follow-up CGEventPost input regularly lands
+    // in the script's parent terminal/IDE instead of warp-oss. See
+    // feedback_warp_oss_input_routing.md.
+    return ensureFrontmost(processName: processName, settle: 0.6)
+}
+
+/// Drives `System Events` to make `processName` the frontmost app and
+/// returns once focus has settled. Every input-emitting op should call
+/// this immediately before posting events.
+@discardableResult
+func ensureFrontmost(processName: String, settle: TimeInterval = 0.3) -> Bool {
+    let script =
+        "tell application \"System Events\" to set frontmost of (first process whose name is \"\(processName)\") to true"
+    var err: NSDictionary?
+    if let s = NSAppleScript(source: script) {
+        s.executeAndReturnError(&err)
+    }
+    if let err {
+        info("ensureFrontmost(\(processName)): \(err)")
         return false
     }
-    let ok = app.activate(options: [.activateAllWindows])
-    Thread.sleep(forTimeInterval: 1.0)
-    return ok
+    Thread.sleep(forTimeInterval: settle)
+    return true
+}
+
+/// Send a key + modifiers via AppleScript `keystroke ... using {...}`.
+/// Routes through the macOS keyboard event pipeline, which Warp's
+/// Settings JSON editor accepts where raw CGEventPost is ignored.
+func osChord(processName: String, mods: [String], key: String) {
+    ensureFrontmost(processName: processName, settle: 0.2)
+    let modList = mods.map { m -> String in
+        switch m.lowercased() {
+        case "cmd", "command": return "command down"
+        case "ctrl", "control": return "control down"
+        case "opt", "option", "alt": return "option down"
+        case "shift": return "shift down"
+        default:
+            info("osChord: unknown modifier '\(m)' — ignored")
+            return ""
+        }
+    }.filter { !$0.isEmpty }
+    let modSegment = modList.isEmpty ? "" : " using {\(modList.joined(separator: ", "))}"
+    let escapedKey = key.replacingOccurrences(of: "\"", with: "\\\"")
+    let script =
+        "tell application \"System Events\" to keystroke \"\(escapedKey)\"\(modSegment)"
+    var err: NSDictionary?
+    if let s = NSAppleScript(source: script) {
+        s.executeAndReturnError(&err)
+    }
+    if let err {
+        die("osChord(\(mods)+\(key)): \(err)")
+    }
+}
+
+/// Send a specific virtual key code via AppleScript `key code N using {...}`.
+/// Use this for keys not addressable by `keystroke` (e.g. forward-delete = 117).
+func osKeyCode(processName: String, code: Int, mods: [String] = []) {
+    ensureFrontmost(processName: processName, settle: 0.2)
+    let modList = mods.map { m -> String in
+        switch m.lowercased() {
+        case "cmd", "command": return "command down"
+        case "ctrl", "control": return "control down"
+        case "opt", "option", "alt": return "option down"
+        case "shift": return "shift down"
+        default: return ""
+        }
+    }.filter { !$0.isEmpty }
+    let modSegment = modList.isEmpty ? "" : " using {\(modList.joined(separator: ", "))}"
+    let script = "tell application \"System Events\" to key code \(code)\(modSegment)"
+    var err: NSDictionary?
+    if let s = NSAppleScript(source: script) {
+        s.executeAndReturnError(&err)
+    }
+    if let err {
+        die("osKeyCode(\(code) + \(mods)): \(err)")
+    }
 }
 
 // MARK: - PNG dump for screenshot step
@@ -423,7 +523,25 @@ func run(step: Step, target processName: String, idx: Int) {
             die("click_text /\(pattern)/ — no match; refusing to click")
         }
         info("    matched '\(m.text)' at screen \(m.centerOnScreen)")
+        ensureFrontmost(processName: processName, settle: 0.2)
         clickAtScreen(m.centerOnScreen)
+
+    case .clickOffsetFromText(let pattern, let dx, let dy):
+        // Anchor on OCR-matched text, then click at a window-pixel offset
+        // from the match's center. Used for hitting UI elements (toggles,
+        // icons) that sit alongside a label on the same row — the label
+        // gives us a stable Y anchor and the dx/dy locates the widget.
+        info("[\(idx)] click_offset_from_text /\(pattern)/ +(\(dx), \(dy))")
+        let re = compileRegex(pattern)
+        guard let m = ocrFirstMatch(processName: processName, regex: re) else {
+            die("click_offset_from_text /\(pattern)/ — no match; refusing to click")
+        }
+        let p = CGPoint(
+            x: m.centerOnScreen.x + dx,
+            y: m.centerOnScreen.y + dy)
+        info("    matched '\(m.text)' — clicking at \(p)")
+        ensureFrontmost(processName: processName, settle: 0.2)
+        clickAtScreen(p)
 
     case .clickAt(let nx, let ny):
         info("[\(idx)] click_at (\(nx), \(ny))")
@@ -433,10 +551,54 @@ func run(step: Step, target processName: String, idx: Int) {
         let p = CGPoint(
             x: w.frame.origin.x + nx * w.frame.width,
             y: w.frame.origin.y + ny * w.frame.height)
+        ensureFrontmost(processName: processName, settle: 0.2)
         clickAtScreen(p)
+
+    case .clickAtIfText(let pattern, let nx, let ny):
+        // Conditional click: click at window-relative coords ONLY when the
+        // OCR regex finds a match. No-op otherwise (with a logged note).
+        // Lets recipes write idempotent state-normalization preambles —
+        // e.g. "click the redaction toggle to OFF only if the dropdown is
+        // currently visible (i.e. toggle is currently ON)".
+        info("[\(idx)] click_at_if_text /\(pattern)/ then (\(nx), \(ny))")
+        let re = compileRegex(pattern)
+        if ocrFirstMatch(processName: processName, regex: re) != nil {
+            guard let w = findTargetWindow(processName: processName) else {
+                die("click_at_if_text — target window not found")
+            }
+            let p = CGPoint(
+                x: w.frame.origin.x + nx * w.frame.width,
+                y: w.frame.origin.y + ny * w.frame.height)
+            info("    matched — clicking at \(p)")
+            ensureFrontmost(processName: processName, settle: 0.2)
+            clickAtScreen(p)
+        } else {
+            info("    /\(pattern)/ not visible — skipping click")
+        }
+
+    case .clickAtIfNotText(let pattern, let nx, let ny):
+        // Inverse of click_at_if_text: click only when the regex does NOT
+        // match. Useful for "ensure toggle is ON: click only if the
+        // dropdown is NOT currently visible".
+        info("[\(idx)] click_at_if_not_text /\(pattern)/ then (\(nx), \(ny))")
+        let re = compileRegex(pattern)
+        if ocrFirstMatch(processName: processName, regex: re) == nil {
+            guard let w = findTargetWindow(processName: processName) else {
+                die("click_at_if_not_text — target window not found")
+            }
+            let p = CGPoint(
+                x: w.frame.origin.x + nx * w.frame.width,
+                y: w.frame.origin.y + ny * w.frame.height)
+            info("    /\(pattern)/ not visible — clicking at \(p)")
+            ensureFrontmost(processName: processName, settle: 0.2)
+            clickAtScreen(p)
+        } else {
+            info("    matched — skipping click")
+        }
 
     case .type(let text):
         info("[\(idx)] type '\(text)' (\(text.count) chars)")
+        ensureFrontmost(processName: processName, settle: 0.2)
         postString(text)
 
     case .press(let keyName):
@@ -444,6 +606,7 @@ func run(step: Step, target processName: String, idx: Int) {
         guard let vk = namedKeys[keyName.lowercased()] else {
             die("press: unknown key '\(keyName)' — add to namedKeys table")
         }
+        ensureFrontmost(processName: processName, settle: 0.2)
         postKey(vk)
 
     case .chord(let mods, let keyName):
@@ -451,20 +614,29 @@ func run(step: Step, target processName: String, idx: Int) {
         guard let vk = namedKeys[keyName.lowercased()] else {
             die("chord: unknown key '\(keyName)' — add to namedKeys table")
         }
+        ensureFrontmost(processName: processName, settle: 0.2)
         postKey(vk, flags: cgFlags(for: mods))
 
+    case .osChord(let mods, let key):
+        info("[\(idx)] os_chord \(mods)+\(key)")
+        osChord(processName: processName, mods: mods, key: key)
+
+    case .osKeyCode(let code, let mods):
+        info("[\(idx)] os_key_code \(code) mods=\(mods)")
+        osKeyCode(processName: processName, code: code, mods: mods)
+
     case .pasteText(let text):
-        // Set the system clipboard and send Cmd+V. Avoids per-character
-        // typing entirely, so Warp's autosuggestion never gets to match
-        // a partial prefix against the user's shell history — the safer
-        // path for shell command input where the leak surface is real.
+        // Set the system clipboard, then post Cmd+V via AppleScript so
+        // the keystroke routes through the macOS event pipeline that
+        // Warp's Settings JSON editor honors. The CGEventPost variant
+        // works in terminal/agent input fields but is silently ignored
+        // by the code editor.
         info("[\(idx)] paste_text (\(text.count) chars)")
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(text, forType: .string)
-        Thread.sleep(forTimeInterval: 0.12)
-        guard let vk = namedKeys["v"] else { die("paste_text: missing 'v' in namedKeys") }
-        postKey(vk, flags: .maskCommand)
+        Thread.sleep(forTimeInterval: 0.15)
+        osChord(processName: processName, mods: ["cmd"], key: "v")
 
     case .resizeWindow(let x, let y, let w, let h):
         // Set the front-window bounds of the target process via AppleScript.

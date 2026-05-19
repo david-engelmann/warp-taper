@@ -1,0 +1,286 @@
+{
+  "name": "11263-mcp-env-headers-bypass",
+  "target_process": "warp-oss",
+  "_purpose": "Reproduction evidence for warpdotdev/warp#11263. Runs against a warp-oss binary built WITH DEMO-PATCH-B (so SECRETS_REGEX compiles when the toggle is flipped) but WITHOUT DEMO-PATCH-C (no raw-input scan in parse_templatable_json before from_user_json runs). The recipe proves: with secret redaction visibly ON, a save whose secret sits in headers.Authorization is silently accepted (BUG), while the same secret in the top-level `url` is correctly rejected by PR #10839's predicate (control). The bug is the templatize_field call on env/headers that replaces the secret with a `{{placeholder}}` before the predicate scans `template.json`.",
+  "_safety": "Token is the deterministic placeholder `sk-FAKE0000000000FAKEdemoWARP11263`. Matches the Generic SK regex from custom_secret_regex_list.",
+  "_state_touched": "Adds MCP entry `demo-hdr-bypass-11263` to MY MCPS during Phase C. Phase E adds a +Add attempt with the same secret in url \u2014 that one is BLOCKED so MY MCPS gains only one entry. Ends with the toggle ON.",
+  "_phases": [
+    "A: open Settings, search 'redaction'; confirm toggle starts OFF",
+    "B: click toggle ON; wait for 'Secret visual redaction mode' dropdown (DEMO-PATCH-B fires SECRETS_REGEX recompile)",
+    "C: navigate to MCP Servers \u2192 + Add \u2192 paste config with sk- in headers.Authorization \u2192 Save \u2192 expect demo-hdr-bypass-11263 to land in MY MCPS (BUG: should have been blocked)",
+    "D: navigate back to MCP Servers \u2192 + Add"
+  ],
+  "steps": [
+    {
+      "op": "activate"
+    },
+    {
+      "op": "wait",
+      "ms": 1000
+    },
+    {
+      "op": "resize_window",
+      "x": 100,
+      "y": 100,
+      "width": 1600,
+      "height": 950
+    },
+    {
+      "op": "wait",
+      "ms": 500
+    },
+    {
+      "op": "press",
+      "key": "escape"
+    },
+    {
+      "op": "wait",
+      "ms": 300
+    },
+    {
+      "op": "press",
+      "key": "escape"
+    },
+    {
+      "op": "wait",
+      "ms": 300
+    },
+    {
+      "op": "os_chord",
+      "mods": [
+        "cmd"
+      ],
+      "key": ","
+    },
+    {
+      "op": "wait",
+      "ms": 1800
+    },
+    {
+      "op": "click_at",
+      "x": 0.183,
+      "y": 0.094
+    },
+    {
+      "op": "wait",
+      "ms": 400
+    },
+    {
+      "op": "os_chord",
+      "mods": [
+        "cmd"
+      ],
+      "key": "a"
+    },
+    {
+      "op": "wait",
+      "ms": 200
+    },
+    {
+      "op": "os_key_code",
+      "code": 117,
+      "mods": []
+    },
+    {
+      "op": "wait",
+      "ms": 300
+    },
+    {
+      "op": "paste_text",
+      "text": "redaction"
+    },
+    {
+      "op": "wait",
+      "ms": 1800
+    },
+    {
+      "op": "expect_text",
+      "regex": "Secret redaction",
+      "timeout_ms": 8000
+    },
+    {
+      "op": "wait",
+      "ms": 2000
+    },
+    {
+      "op": "click_at_if_text",
+      "regex": "Secret visual redaction mode",
+      "x": 0.869,
+      "y": 0.162
+    },
+    {
+      "op": "wait",
+      "ms": 2500
+    },
+    {
+      "op": "screenshot",
+      "path": "/tmp/11263-phase-a-toggle-off-initial.png"
+    },
+    {
+      "op": "click_at",
+      "x": 0.869,
+      "y": 0.162
+    },
+    {
+      "op": "wait",
+      "ms": 2500
+    },
+    {
+      "op": "expect_text",
+      "regex": "Secret visual redaction mode",
+      "timeout_ms": 8000
+    },
+    {
+      "op": "wait",
+      "ms": 2000
+    },
+    {
+      "op": "screenshot",
+      "path": "/tmp/11263-phase-b-toggle-on.png"
+    },
+    {
+      "op": "click_at",
+      "x": 0.183,
+      "y": 0.094
+    },
+    {
+      "op": "wait",
+      "ms": 400
+    },
+    {
+      "op": "os_chord",
+      "mods": [
+        "cmd"
+      ],
+      "key": "a"
+    },
+    {
+      "op": "wait",
+      "ms": 200
+    },
+    {
+      "op": "os_key_code",
+      "code": 117,
+      "mods": []
+    },
+    {
+      "op": "wait",
+      "ms": 300
+    },
+    {
+      "op": "paste_text",
+      "text": "MCP"
+    },
+    {
+      "op": "wait",
+      "ms": 1800
+    },
+    {
+      "op": "expect_text",
+      "regex": "^MCP servers$",
+      "timeout_ms": 5000
+    },
+    {
+      "op": "click_text",
+      "regex": "^MCP servers$"
+    },
+    {
+      "op": "wait",
+      "ms": 2500
+    },
+    {
+      "op": "expect_text",
+      "regex": "MCP Servers",
+      "timeout_ms": 5000
+    },
+    {
+      "op": "expect_text",
+      "regex": "\\+ Add",
+      "timeout_ms": 5000
+    },
+    {
+      "op": "click_text",
+      "regex": "\\+ Add"
+    },
+    {
+      "op": "wait",
+      "ms": 2500
+    },
+    {
+      "op": "expect_text",
+      "regex": "Add New MCP Server",
+      "timeout_ms": 5000
+    },
+    {
+      "op": "click_at",
+      "x": 0.55,
+      "y": 0.3
+    },
+    {
+      "op": "wait",
+      "ms": 600
+    },
+    {
+      "op": "os_chord",
+      "mods": [
+        "cmd"
+      ],
+      "key": "a"
+    },
+    {
+      "op": "wait",
+      "ms": 400
+    },
+    {
+      "op": "os_key_code",
+      "code": 117,
+      "mods": []
+    },
+    {
+      "op": "wait",
+      "ms": 500
+    },
+    {
+      "op": "paste_text",
+      "text": "{\n  \"demo-hdr-bypass-11263\": {\n    \"url\": \"http://127.0.0.1:8766/mcp/\",\n    \"headers\": {\n      \"Authorization\": \"Bearer sk-FAKE0000000000FAKEdemoWARP11263\"\n    }\n  }\n}"
+    },
+    {
+      "op": "wait",
+      "ms": 1800
+    },
+    {
+      "op": "expect_text",
+      "regex": "sk-FAKE0000000000FAKEdemoWARP11263",
+      "timeout_ms": 5000
+    },
+    {
+      "op": "screenshot",
+      "path": "/tmp/11263-phase-c-pasted-headers-secret.png"
+    },
+    {
+      "op": "wait",
+      "ms": 1500
+    },
+    {
+      "op": "click_text",
+      "regex": "^(v )?Save$"
+    },
+    {
+      "op": "wait",
+      "ms": 4500
+    },
+    {
+      "op": "expect_text",
+      "regex": "demo-hdr-bypass-11263",
+      "timeout_ms": 10000
+    },
+    {
+      "op": "wait",
+      "ms": 2500
+    },
+    {
+      "op": "screenshot",
+      "path": "/tmp/11263-phase-c-bug-save-succeeded.png"
+    }
+  ]
+}

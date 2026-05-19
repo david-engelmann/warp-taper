@@ -1,0 +1,366 @@
+{
+  "name": "11265-mcp-add-server-bypass",
+  "target_process": "warp-oss",
+  "_purpose": "Reproduction evidence for warpdotdev/warp#11265. Runs against a warp-oss binary built WITH DEMO-PATCH-B + DEMO-PATCH-C (so SECRETS_REGEX compiles on toggle and parse_templatable_json scans raw JSON before from_user_json templatization) but WITHOUT DEMO-PATCH-C-NEW (no raw-input scan inside the new-server save branch of handle_action). The recipe proves: with secret redaction visibly ON, a NEW server save via '+ Add' that embeds a secret in the top-level url is silently accepted (BUG), while the SAME secret saved via edit-existing on a previously-added server is correctly blocked (control). The bug is that the new-server save branch calls ParsedTemplatableMCPServerResult::from_user_json directly, skipping parse_templatable_json (which is where the predicate is wired).",
+  "_safety": "Token is the deterministic placeholder `sk-FAKE0000000000FAKEdemoWARP11265`. Matches the Generic SK regex from custom_secret_regex_list.",
+  "_state_touched": "Adds MCP entries `demo-baseline-11265` (no secret, Phase C control) and `demo-add-bypass-11265` (the bug save) to MY MCPS. Phase E uses edit-existing on demo-baseline-11265; that save is BLOCKED so MY MCPS retains exactly the two entries from Phases C and D. Ends with the toggle ON.",
+  "_phases": [
+    "A: open Settings, search 'redaction'; confirm toggle starts OFF",
+    "B: click toggle ON; wait for 'Secret visual redaction mode' dropdown",
+    "C: navigate to MCP Servers \u2192 + Add \u2192 paste a NON-secret baseline config (demo-baseline-11265) \u2192 Save \u2192 expect it to land in MY MCPS (establishes a server to edit later)",
+    "D: navigate back to MCP Servers \u2192 + Add \u2192 paste config with sk- in url \u2192 Save \u2192 expect demo-add-bypass-11265 to land in MY MCPS (BUG: should have been blocked; +Add bypasses parse_templatable_json)"
+  ],
+  "steps": [
+    {
+      "op": "activate"
+    },
+    {
+      "op": "wait",
+      "ms": 1000
+    },
+    {
+      "op": "resize_window",
+      "x": 100,
+      "y": 100,
+      "width": 1600,
+      "height": 950
+    },
+    {
+      "op": "wait",
+      "ms": 500
+    },
+    {
+      "op": "press",
+      "key": "escape"
+    },
+    {
+      "op": "wait",
+      "ms": 300
+    },
+    {
+      "op": "press",
+      "key": "escape"
+    },
+    {
+      "op": "wait",
+      "ms": 300
+    },
+    {
+      "op": "os_chord",
+      "mods": [
+        "cmd"
+      ],
+      "key": ","
+    },
+    {
+      "op": "wait",
+      "ms": 1800
+    },
+    {
+      "op": "click_at",
+      "x": 0.183,
+      "y": 0.094
+    },
+    {
+      "op": "wait",
+      "ms": 400
+    },
+    {
+      "op": "os_chord",
+      "mods": [
+        "cmd"
+      ],
+      "key": "a"
+    },
+    {
+      "op": "wait",
+      "ms": 200
+    },
+    {
+      "op": "os_key_code",
+      "code": 117,
+      "mods": []
+    },
+    {
+      "op": "wait",
+      "ms": 300
+    },
+    {
+      "op": "paste_text",
+      "text": "redaction"
+    },
+    {
+      "op": "wait",
+      "ms": 1800
+    },
+    {
+      "op": "expect_text",
+      "regex": "Secret redaction",
+      "timeout_ms": 8000
+    },
+    {
+      "op": "wait",
+      "ms": 2000
+    },
+    {
+      "op": "click_at_if_text",
+      "regex": "Secret visual redaction mode",
+      "x": 0.869,
+      "y": 0.162
+    },
+    {
+      "op": "wait",
+      "ms": 2500
+    },
+    {
+      "op": "screenshot",
+      "path": "/tmp/11265-phase-a-toggle-off-initial.png"
+    },
+    {
+      "op": "click_at",
+      "x": 0.869,
+      "y": 0.162
+    },
+    {
+      "op": "wait",
+      "ms": 2500
+    },
+    {
+      "op": "expect_text",
+      "regex": "Secret visual redaction mode",
+      "timeout_ms": 8000
+    },
+    {
+      "op": "wait",
+      "ms": 2000
+    },
+    {
+      "op": "screenshot",
+      "path": "/tmp/11265-phase-b-toggle-on.png"
+    },
+    {
+      "op": "click_at",
+      "x": 0.183,
+      "y": 0.094
+    },
+    {
+      "op": "wait",
+      "ms": 400
+    },
+    {
+      "op": "os_chord",
+      "mods": [
+        "cmd"
+      ],
+      "key": "a"
+    },
+    {
+      "op": "wait",
+      "ms": 200
+    },
+    {
+      "op": "os_key_code",
+      "code": 117,
+      "mods": []
+    },
+    {
+      "op": "wait",
+      "ms": 300
+    },
+    {
+      "op": "paste_text",
+      "text": "MCP"
+    },
+    {
+      "op": "wait",
+      "ms": 1800
+    },
+    {
+      "op": "expect_text",
+      "regex": "^MCP servers$",
+      "timeout_ms": 5000
+    },
+    {
+      "op": "click_text",
+      "regex": "^MCP servers$"
+    },
+    {
+      "op": "wait",
+      "ms": 2500
+    },
+    {
+      "op": "expect_text",
+      "regex": "MCP Servers",
+      "timeout_ms": 5000
+    },
+    {
+      "op": "expect_text",
+      "regex": "\\+ Add",
+      "timeout_ms": 12000
+    },
+    {
+      "op": "click_text",
+      "regex": "\\+ Add"
+    },
+    {
+      "op": "wait",
+      "ms": 2500
+    },
+    {
+      "op": "expect_text",
+      "regex": "Add New MCP Server",
+      "timeout_ms": 5000
+    },
+    {
+      "op": "click_at",
+      "x": 0.55,
+      "y": 0.3
+    },
+    {
+      "op": "wait",
+      "ms": 600
+    },
+    {
+      "op": "os_chord",
+      "mods": [
+        "cmd"
+      ],
+      "key": "a"
+    },
+    {
+      "op": "wait",
+      "ms": 400
+    },
+    {
+      "op": "os_key_code",
+      "code": 117,
+      "mods": []
+    },
+    {
+      "op": "wait",
+      "ms": 500
+    },
+    {
+      "op": "paste_text",
+      "text": "{\n  \"demo-baseline-11265\": {\n    \"url\": \"http://127.0.0.1:8767/mcp/\"\n  }\n}"
+    },
+    {
+      "op": "wait",
+      "ms": 1800
+    },
+    {
+      "op": "click_text",
+      "regex": "^(v )?Save$"
+    },
+    {
+      "op": "wait",
+      "ms": 4500
+    },
+    {
+      "op": "expect_text",
+      "regex": "demo-baseline-11265",
+      "timeout_ms": 10000
+    },
+    {
+      "op": "wait",
+      "ms": 2000
+    },
+    {
+      "op": "screenshot",
+      "path": "/tmp/11265-phase-c-baseline-saved.png"
+    },
+    {
+      "op": "wait",
+      "ms": 4000
+    },
+    {
+      "op": "expect_text",
+      "regex": "\\+ Add",
+      "timeout_ms": 12000
+    },
+    {
+      "op": "click_text",
+      "regex": "\\+ Add"
+    },
+    {
+      "op": "wait",
+      "ms": 2500
+    },
+    {
+      "op": "expect_text",
+      "regex": "Add New MCP Server",
+      "timeout_ms": 5000
+    },
+    {
+      "op": "click_at",
+      "x": 0.55,
+      "y": 0.3
+    },
+    {
+      "op": "wait",
+      "ms": 600
+    },
+    {
+      "op": "os_chord",
+      "mods": [
+        "cmd"
+      ],
+      "key": "a"
+    },
+    {
+      "op": "wait",
+      "ms": 400
+    },
+    {
+      "op": "os_key_code",
+      "code": 117,
+      "mods": []
+    },
+    {
+      "op": "wait",
+      "ms": 500
+    },
+    {
+      "op": "paste_text",
+      "text": "{\n  \"demo-add-bypass-11265\": {\n    \"url\": \"https://api.example.com/mcp?token=sk-FAKE0000000000FAKEdemoWARP11265\"\n  }\n}"
+    },
+    {
+      "op": "wait",
+      "ms": 1800
+    },
+    {
+      "op": "expect_text",
+      "regex": "sk-FAKE0000000000FAKEdemoWARP11265",
+      "timeout_ms": 5000
+    },
+    {
+      "op": "screenshot",
+      "path": "/tmp/11265-phase-d-pasted-add-secret.png"
+    },
+    {
+      "op": "wait",
+      "ms": 1500
+    },
+    {
+      "op": "click_text",
+      "regex": "^(v )?Save$"
+    },
+    {
+      "op": "wait",
+      "ms": 4500
+    },
+    {
+      "op": "expect_text",
+      "regex": "demo-add-bypass-11265",
+      "timeout_ms": 10000
+    },
+    {
+      "op": "wait",
+      "ms": 2500
+    },
+    {
+      "op": "screenshot",
+      "path": "/tmp/11265-phase-d-bug-add-succeeded.png"
+    }
+  ]
+}

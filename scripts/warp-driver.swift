@@ -83,12 +83,14 @@ enum Step {
     case type(text: String)
     case press(key: String)
     case chord(mods: [String], key: String)
+    case pasteText(text: String)
+    case resizeWindow(x: Int, y: Int, width: Int, height: Int)
     case screenshot(path: String)
 }
 
 extension Step: Decodable {
     private enum Keys: String, CodingKey {
-        case op, regex, ms, text, key, mods, path, timeout_ms, x, y
+        case op, regex, ms, text, key, mods, path, timeout_ms, x, y, width, height
     }
 
     init(from decoder: Decoder) throws {
@@ -119,6 +121,14 @@ extension Step: Decodable {
             self = .chord(
                 mods: try c.decode([String].self, forKey: .mods),
                 key: try c.decode(String.self, forKey: .key))
+        case "paste_text":
+            self = .pasteText(text: try c.decode(String.self, forKey: .text))
+        case "resize_window":
+            self = .resizeWindow(
+                x: try c.decode(Int.self, forKey: .x),
+                y: try c.decode(Int.self, forKey: .y),
+                width: try c.decode(Int.self, forKey: .width),
+                height: try c.decode(Int.self, forKey: .height))
         case "screenshot":
             self = .screenshot(path: try c.decode(String.self, forKey: .path))
         default:
@@ -266,6 +276,11 @@ let namedKeys: [String: CGKeyCode] = [
     "i": 34,
     "k": 40,
     "l": 37,
+    "v": 9,
+    "t": 17,
+    "a": 0,
+    "c": 8,
+    "w": 13,
 ]
 
 func cgFlags(for mods: [String]) -> CGEventFlags {
@@ -437,6 +452,41 @@ func run(step: Step, target processName: String, idx: Int) {
             die("chord: unknown key '\(keyName)' — add to namedKeys table")
         }
         postKey(vk, flags: cgFlags(for: mods))
+
+    case .pasteText(let text):
+        // Set the system clipboard and send Cmd+V. Avoids per-character
+        // typing entirely, so Warp's autosuggestion never gets to match
+        // a partial prefix against the user's shell history — the safer
+        // path for shell command input where the leak surface is real.
+        info("[\(idx)] paste_text (\(text.count) chars)")
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+        Thread.sleep(forTimeInterval: 0.12)
+        guard let vk = namedKeys["v"] else { die("paste_text: missing 'v' in namedKeys") }
+        postKey(vk, flags: .maskCommand)
+
+    case .resizeWindow(let x, let y, let w, let h):
+        // Set the front-window bounds of the target process via AppleScript.
+        // Smaller, predictable windows mean less downscale when converting
+        // captured .mov → .gif, which keeps recorded text readable.
+        info("[\(idx)] resize_window {x:\(x),y:\(y),w:\(w),h:\(h)}")
+        let script = """
+            tell application "System Events"
+              tell process "\(processName)"
+                set position of front window to {\(x), \(y)}
+                set size of front window to {\(w), \(h)}
+              end tell
+            end tell
+            """
+        var err: NSDictionary?
+        if let s = NSAppleScript(source: script) {
+            s.executeAndReturnError(&err)
+        }
+        if let err {
+            die("resize_window failed: \(err)")
+        }
+        Thread.sleep(forTimeInterval: 0.4)
 
     case .screenshot(let path):
         info("[\(idx)] screenshot \(path)")

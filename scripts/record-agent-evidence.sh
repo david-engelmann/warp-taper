@@ -71,8 +71,8 @@ DURATION_S="${DURATION_S:-32}"
 ACTIVATE_DELAY_S="${ACTIVATE_DELAY_S:-2}"
 OUTPUT="${OUTPUT:-${REPO_ROOT}/docs/sample-tape/agent-evidence.mov}"
 EMIT_GIF="${EMIT_GIF:-0}"
-GIF_FPS="${GIF_FPS:-6}"
-GIF_MAX_WIDTH="${GIF_MAX_WIDTH:-720}"
+GIF_FPS="${GIF_FPS:-8}"
+GIF_MAX_WIDTH="${GIF_MAX_WIDTH:-1280}"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
     echo "record-agent-evidence.sh: macOS only." >&2
@@ -97,6 +97,13 @@ rm -f "${OUTPUT}"
 
 REC_LOG="/tmp/record-agent-evidence.recorder.log"
 DRV_LOG="/tmp/record-agent-evidence.driver.log"
+
+# Activate the target window BEFORE starting the recorder. The
+# ScreenCaptureKit content list returns only on-screen windows, so if
+# the target is in another space / minimized / behind another window
+# when the recorder polls for it, recording fails to start.
+osascript -e "tell application \"System Events\" to set frontmost of (first process whose name is \"${PROC_NAME}\") to true" 2>/dev/null || true
+sleep 1
 
 echo "==> recipe:    ${RECIPE_PATH}"
 echo "==> recording: ${PROC_NAME} → ${OUTPUT} (${DURATION_S}s)"

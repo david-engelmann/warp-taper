@@ -1,0 +1,36 @@
+{
+  "name": "10874-mcp-log-rotation",
+  "target_process": "warp-oss",
+  "_purpose": "Evidence for warpdotdev/warp#10874. noisy-mcp is configured with NOISY_MCP_AUTO_SPAM_MIB=35 / RATE=1.5 MiB/sec, so when warp-oss launches it writes ~35 MiB of stderr at a controlled rate. Warp's MCP capture rotates the per-server log file once each 10 MiB slot fills — ~3 rotations visible inside ~24s. The recipe drives one shell watch loop that prints `ls -lh <mcp-dir>` repeatedly so the rotation files become visible appearing/rolling within the recording. Zero agent credits consumed.",
+  "_safety": "All input arrives via paste_text (NSPasteboard → Cmd+V). git output is force-paged off via --no-pager / rev-parse — no pager surfaces possible.",
+  "_credit_budget": "Zero agent / tool calls. The MCP server self-drives via env var.",
+  "steps": [
+    {"op": "activate"},
+    {"op": "wait", "ms": 1500},
+
+    {"op": "press", "key": "escape"},
+    {"op": "wait", "ms": 200},
+    {"op": "press", "key": "escape"},
+    {"op": "wait", "ms": 200},
+    {"op": "chord", "mods": ["cmd"], "key": "a"},
+    {"op": "wait", "ms": 100},
+    {"op": "press", "key": "delete"},
+    {"op": "wait", "ms": 300},
+
+    {"op": "expect_text", "regex": "Warp anything", "timeout_ms": 8000},
+    {"op": "abort_if_text", "regex": "\\b(cd \\.\\.|git clone|source /Applications)"},
+
+    {"op": "paste_text", "text": "cd ~/personal/warp && git branch --show-current && git rev-parse --short HEAD && for i in $(seq 1 28); do printf '\\n=== t=%ds ===\\n' $((i*1)); ls -lh \"$HOME/Library/Group Containers/2BBY89MBSN.dev.warp/Library/Application Support/dev.warp.WarpOss/mcp/\"; sleep 1; done"},
+    {"op": "wait", "ms": 400},
+    {"op": "press", "key": "return"},
+
+    {"op": "expect_text", "regex": "david/7723-mcp-log-rotation", "timeout_ms": 10000},
+
+    {"op": "expect_text", "regex": "\\.log\\.1\\b", "timeout_ms": 25000},
+    {"op": "expect_text", "regex": "\\.log\\.2\\b", "timeout_ms": 20000},
+
+    {"op": "wait", "ms": 8000},
+
+    {"op": "screenshot", "path": "/tmp/10874-final-frame.png"}
+  ]
+}

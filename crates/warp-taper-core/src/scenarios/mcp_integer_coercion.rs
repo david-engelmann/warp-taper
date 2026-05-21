@@ -27,8 +27,7 @@ use crate::error::Result;
 use crate::scenario::Scenario;
 use crate::scenarios::Builtin;
 
-const TITLE: &str =
-    "MCP tool call: nested whole-number floats coerced to integer before wire send";
+const TITLE: &str = "MCP tool call: nested whole-number floats coerced to integer before wire send";
 const TICKET: &str = "warpdotdev/warp#11407";
 const EXPECTED: &str = "\
 The PANW-style schema (object → object → array → oneOf → integer)
@@ -47,7 +46,11 @@ pub fn mcp_integer_coercion() -> Result<Builtin> {
         // recipe steps in `scripts/recipes/11407-mcp-integer-coercion.json`:
         // the recipe cats the schema (≈ 0-10s), then runs the test (≈ 10-25s),
         // then leaves the result on screen (≈ 25-32s).
-        .caption(0.0, 4.0, "warpdotdev/warp PR #11407 - nested integer coercion")
+        .caption(
+            0.0,
+            4.0,
+            "warpdotdev/warp PR #11407 - nested integer coercion",
+        )
         .caption(
             4.0,
             10.0,

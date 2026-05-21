@@ -196,12 +196,7 @@ impl ScenarioBuilder {
     /// Add a timed caption to the recording. `start_secs`/`end_secs` are
     /// offsets from the start of the recording. Multiple `.caption(...)`
     /// calls accumulate in insertion order.
-    pub fn caption(
-        mut self,
-        start_secs: f64,
-        end_secs: f64,
-        text: impl Into<String>,
-    ) -> Self {
+    pub fn caption(mut self, start_secs: f64, end_secs: f64, text: impl Into<String>) -> Self {
         self.captions.push(Caption::new(
             Duration::from_secs_f64(start_secs),
             Duration::from_secs_f64(end_secs),
@@ -225,7 +220,9 @@ impl ScenarioBuilder {
                 )));
             }
             if c.text.trim().is_empty() {
-                return Err(Error::ScenarioInvalid("caption text cannot be empty".into()));
+                return Err(Error::ScenarioInvalid(
+                    "caption text cannot be empty".into(),
+                ));
             }
         }
         Ok(Scenario {

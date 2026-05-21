@@ -27,8 +27,7 @@ use crate::scenario::Caption;
 /// Default macOS path to a TTF font that ffmpeg can load via libfreetype.
 /// Captioned output renders white text at this font. Overridable via
 /// [`CaptionConfig::font_path`] for hosts where this path is missing.
-pub const DEFAULT_FONT_PATH: &str =
-    "/System/Library/Fonts/Supplemental/Arial.ttf";
+pub const DEFAULT_FONT_PATH: &str = "/System/Library/Fonts/Supplemental/Arial.ttf";
 
 /// Inputs to [`apply_captions`]. Most callers should construct via
 /// [`CaptionConfig::default`] and override only what they need.
@@ -239,6 +238,89 @@ mod tests {
         )
         .unwrap();
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn missing_input_video_returns_io_error() {
+        // The host has ffmpeg (CI runs `ffmpeg-available` paths since the
+        // CI step itself runs `cargo test`). We assert: with a non-empty
+        // caption list and a missing input file, the call returns an I/O
+        // NotFound error instead of silently no-op'ing.
+        if !ffmpeg_available() {
+            // On hosts without ffmpeg the call short-circuits to Ok(None)
+            // before reaching the input-check branch; skip this assertion.
+            return;
+        }
+        let captions = vec![cap(0.0, 1.0, "hi")];
+        let tmp = tempfile::tempdir().unwrap();
+        let missing = tmp.path().join("does-not-exist.mov");
+        let result = apply_captions(
+            &missing,
+            &captions,
+            &tmp.path().join("out.mp4"),
+            &tmp.path().join("out.gif"),
+            &CaptionConfig::default(),
+        );
+        let err = result.expect_err("missing input must produce an error");
+        let crate::error::Error::Io(io_err) = err else {
+            panic!("expected Error::Io, got: {err:?}");
+        };
+        assert_eq!(io_err.kind(), std::io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn missing_font_returns_ok_none() {
+        // If the configured font file isn't present, the call must skip
+        // rather than fail — captioning is a non-fatal post-process, and
+        // surfacing the skip as `Ok(None)` lets the pipeline keep going.
+        if !ffmpeg_available() {
+            return;
+        }
+        let captions = vec![cap(0.0, 1.0, "hi")];
+        let tmp = tempfile::tempdir().unwrap();
+        // We need a real input file to get past the input-check, but the
+        // font check fires before ffmpeg runs so the file contents don't
+        // matter.
+        let input = tmp.path().join("dummy.mov");
+        std::fs::write(&input, b"not really a video").unwrap();
+        let cfg = CaptionConfig {
+            font_path: tmp.path().join("nonexistent.ttf"),
+            ..CaptionConfig::default()
+        };
+        let result = apply_captions(
+            &input,
+            &captions,
+            &tmp.path().join("out.mp4"),
+            &tmp.path().join("out.gif"),
+            &cfg,
+        )
+        .unwrap();
+        assert!(result.is_none(), "missing font must produce Ok(None)");
+    }
+
+    #[test]
+    fn caption_config_default_values_are_stable() {
+        // Pin the default values so a future refactor that bumps them
+        // surfaces in code review rather than silently changing the
+        // appearance of every captioned tape.
+        let cfg = CaptionConfig::default();
+        assert_eq!(cfg.font_path.to_str(), Some(DEFAULT_FONT_PATH));
+        assert_eq!(cfg.fontsize, 30);
+        assert_eq!(cfg.fontcolor, "white");
+        assert_eq!(cfg.bar_height, 70);
+        assert!((cfg.bar_alpha - 0.85).abs() < f32::EPSILON);
+        assert_eq!(cfg.y_offset, 20);
+    }
+
+    #[test]
+    fn empty_caption_text_after_escape_is_preserved() {
+        // Edge case the escape function must handle: an all-whitespace
+        // caption (we don't reject these at the captions module level —
+        // the scenario layer does — but the renderer should produce
+        // a deterministic output).
+        let captions = vec![cap(0.0, 1.0, "   ")];
+        let filter = build_drawtext_filter(&captions, &CaptionConfig::default());
+        assert!(filter.contains("text='   '"));
     }
 
     #[test]

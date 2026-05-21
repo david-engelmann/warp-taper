@@ -267,8 +267,8 @@ fn run_caption(
         text: String,
     }
 
-    let captions_text = std::fs::read_to_string(&captions_path)
-        .map_err(warp_taper_core::Error::Io)?;
+    let captions_text =
+        std::fs::read_to_string(&captions_path).map_err(warp_taper_core::Error::Io)?;
     let raw: Vec<RawCaption> = serde_json::from_str(&captions_text).map_err(|e| {
         warp_taper_core::Error::ScenarioInvalid(format!(
             "failed to parse captions JSON {}: {e}",
@@ -296,7 +296,13 @@ fn run_caption(
     let out_mp4 = output_mp4.unwrap_or_else(|| parent.join(format!("{stem}-captioned.mp4")));
     let out_gif = output_gif.unwrap_or_else(|| parent.join(format!("{stem}-captioned.gif")));
 
-    match apply_captions(&input, &captions, &out_mp4, &out_gif, &CaptionConfig::default())? {
+    match apply_captions(
+        &input,
+        &captions,
+        &out_mp4,
+        &out_gif,
+        &CaptionConfig::default(),
+    )? {
         Some(artifacts) => {
             println!("captioned mp4: {}", artifacts.mp4_path.display());
             println!("captioned gif: {}", artifacts.gif_path.display());

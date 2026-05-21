@@ -38,8 +38,7 @@ pub fn secrets_regex_startup_empty() -> Result<Builtin> {
         .expected(EXPECTED)
         .build()?;
 
-    let master_mov =
-        std::path::PathBuf::from("tapes/11262-secrets-regex-startup-empty/master.mov");
+    let master_mov = std::path::PathBuf::from("tapes/11262-secrets-regex-startup-empty/master.mov");
     let assertions: Vec<Box<dyn Assertion>> = vec![Box::new(FileExists::new(
         master_mov,
         "master.mov captured for #11262 startup-empty repro",

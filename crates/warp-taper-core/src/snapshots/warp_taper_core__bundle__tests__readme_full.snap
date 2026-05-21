@@ -17,6 +17,8 @@ No error toasts during rotation.
 ## Artifacts
 
 - [master.mov](master.mov) — screen recording
+- [master-captioned.mp4](master-captioned.mp4) — captioned recording (PR-embed-friendly)
+- [master-captioned.gif](master-captioned.gif) — captioned recording, gif
 - patches/ — named stills:
     - [01-before.png](patches/01-before.png)
 - [logs/warp-oss.session.log](logs/warp-oss.session.log) — 48213 bytes of warp-oss.log captured during the session

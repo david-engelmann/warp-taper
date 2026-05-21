@@ -28,6 +28,12 @@ pub struct BundleInputs<'a> {
 #[derive(Debug, Clone, Default)]
 pub struct BundleArtifacts {
     pub has_master_mov: bool,
+    /// Captioned `.mp4` produced by the captions stage, if any. The file
+    /// lives at `<tape_dir>/master-captioned.mp4`.
+    pub has_captioned_mp4: bool,
+    /// Captioned `.gif` produced alongside the mp4, suitable for embedding
+    /// directly in a PR comment.
+    pub has_captioned_gif: bool,
     pub patches: Vec<String>,
     pub session_log_bytes: Option<u64>,
     pub mcp_logs: Vec<String>,
@@ -36,6 +42,8 @@ pub struct BundleArtifacts {
 impl BundleArtifacts {
     pub fn is_empty(&self) -> bool {
         !self.has_master_mov
+            && !self.has_captioned_mp4
+            && !self.has_captioned_gif
             && self.patches.is_empty()
             && self.session_log_bytes.is_none()
             && self.mcp_logs.is_empty()
@@ -92,6 +100,20 @@ pub fn render_readme(inputs: &BundleInputs) -> String {
         writeln!(out).unwrap();
         if inputs.artifacts.has_master_mov {
             writeln!(out, "- [master.mov](master.mov) — screen recording").unwrap();
+        }
+        if inputs.artifacts.has_captioned_mp4 {
+            writeln!(
+                out,
+                "- [master-captioned.mp4](master-captioned.mp4) — captioned recording (PR-embed-friendly)"
+            )
+            .unwrap();
+        }
+        if inputs.artifacts.has_captioned_gif {
+            writeln!(
+                out,
+                "- [master-captioned.gif](master-captioned.gif) — captioned recording, gif"
+            )
+            .unwrap();
         }
         if !inputs.artifacts.patches.is_empty() {
             writeln!(out, "- patches/ — named stills:").unwrap();
@@ -209,6 +231,8 @@ mod tests {
             eval_status: "pass",
             artifacts: BundleArtifacts {
                 has_master_mov: true,
+                has_captioned_mp4: false,
+                has_captioned_gif: false,
                 patches: vec!["01-before.png".into(), "02-after.png".into()],
                 session_log_bytes: Some(48_213),
                 mcp_logs: vec!["0d6c1e2a-mcp.log".into(), "0d6c1e2a-mcp.log.1".into()],
@@ -230,6 +254,8 @@ mod tests {
             eval_status: "pass",
             artifacts: BundleArtifacts {
                 has_master_mov: true,
+                has_captioned_mp4: true,
+                has_captioned_gif: true,
                 patches: vec!["01-before.png".into()],
                 session_log_bytes: Some(48_213),
                 mcp_logs: vec!["0d6c1e2a-mcp.log".into()],

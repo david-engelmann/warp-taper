@@ -7,6 +7,7 @@
 //! by the bash pipeline.
 
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use crate::error::{Error, Result};
 
@@ -15,6 +16,10 @@ pub struct Scenario {
     pub slug: String,
     pub metadata: Metadata,
     pub mcp_log_paths: Vec<PathBuf>,
+    /// Optional timed captions burned onto the master recording by the
+    /// `captions` post-processing step. Empty = no captioning (and the
+    /// step is skipped, so ffmpeg isn't required for caption-less tapes).
+    pub captions: Vec<Caption>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -22,6 +27,29 @@ pub struct Metadata {
     pub title: String,
     pub ticket: Option<String>,
     pub expected: Option<String>,
+}
+
+/// A single timed caption to burn onto the master recording.
+///
+/// `start` and `end` are offsets from the start of the recording.
+/// `text` is rendered inside a translucent top bar via ffmpeg's
+/// `drawtext` filter; ffmpeg quoting concerns (`:`, `\`, `'`, `,`) are
+/// handled by the captions module.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Caption {
+    pub start: Duration,
+    pub end: Duration,
+    pub text: String,
+}
+
+impl Caption {
+    pub fn new(start: Duration, end: Duration, text: impl Into<String>) -> Self {
+        Self {
+            start,
+            end,
+            text: text.into(),
+        }
+    }
 }
 
 impl Scenario {
@@ -52,6 +80,12 @@ impl Scenario {
 
     pub fn from_yaml_str(slug: &str, yaml: &str) -> Result<Self> {
         #[derive(serde::Deserialize)]
+        struct RawCaption {
+            start: f64,
+            end: f64,
+            text: String,
+        }
+        #[derive(serde::Deserialize)]
         struct Raw {
             #[serde(default)]
             title: String,
@@ -61,6 +95,8 @@ impl Scenario {
             expected: Option<String>,
             #[serde(default)]
             mcp_log_paths: Vec<String>,
+            #[serde(default)]
+            captions: Vec<RawCaption>,
         }
 
         let raw: Raw = serde_yml::from_str(yaml)
@@ -74,6 +110,34 @@ impl Scenario {
         }
 
         let mcp_log_paths = raw.mcp_log_paths.into_iter().map(expand_tilde).collect();
+        let captions = raw
+            .captions
+            .into_iter()
+            .map(|c| {
+                if c.end <= c.start {
+                    return Err(Error::ScenarioInvalid(format!(
+                        "caption end ({}) must be greater than start ({}): {:?}",
+                        c.end, c.start, c.text
+                    )));
+                }
+                if c.start < 0.0 {
+                    return Err(Error::ScenarioInvalid(format!(
+                        "caption start ({}) must be non-negative: {:?}",
+                        c.start, c.text
+                    )));
+                }
+                if c.text.trim().is_empty() {
+                    return Err(Error::ScenarioInvalid(
+                        "caption text cannot be empty".into(),
+                    ));
+                }
+                Ok(Caption::new(
+                    Duration::from_secs_f64(c.start),
+                    Duration::from_secs_f64(c.end),
+                    c.text,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
 
         Ok(Self {
             slug: slug.to_string(),
@@ -86,6 +150,7 @@ impl Scenario {
                     .filter(|s| !s.is_empty()),
             },
             mcp_log_paths,
+            captions,
         })
     }
 }
@@ -95,6 +160,7 @@ pub struct ScenarioBuilder {
     slug: String,
     metadata: Metadata,
     mcp_log_paths: Vec<PathBuf>,
+    captions: Vec<Caption>,
 }
 
 impl ScenarioBuilder {
@@ -103,6 +169,7 @@ impl ScenarioBuilder {
             slug,
             metadata: Metadata::default(),
             mcp_log_paths: Vec::new(),
+            captions: Vec::new(),
         }
     }
 
@@ -126,6 +193,23 @@ impl ScenarioBuilder {
         self
     }
 
+    /// Add a timed caption to the recording. `start_secs`/`end_secs` are
+    /// offsets from the start of the recording. Multiple `.caption(...)`
+    /// calls accumulate in insertion order.
+    pub fn caption(
+        mut self,
+        start_secs: f64,
+        end_secs: f64,
+        text: impl Into<String>,
+    ) -> Self {
+        self.captions.push(Caption::new(
+            Duration::from_secs_f64(start_secs),
+            Duration::from_secs_f64(end_secs),
+            text,
+        ));
+        self
+    }
+
     pub fn build(self) -> Result<Scenario> {
         if self.slug.is_empty() {
             return Err(Error::ScenarioInvalid("slug is required".into()));
@@ -133,10 +217,22 @@ impl ScenarioBuilder {
         if self.metadata.title.trim().is_empty() {
             return Err(Error::ScenarioInvalid("title is required".into()));
         }
+        for c in &self.captions {
+            if c.end <= c.start {
+                return Err(Error::ScenarioInvalid(format!(
+                    "caption end ({:?}) must be greater than start ({:?}): {:?}",
+                    c.end, c.start, c.text
+                )));
+            }
+            if c.text.trim().is_empty() {
+                return Err(Error::ScenarioInvalid("caption text cannot be empty".into()));
+            }
+        }
         Ok(Scenario {
             slug: self.slug,
             metadata: self.metadata,
             mcp_log_paths: self.mcp_log_paths,
+            captions: self.captions,
         })
     }
 }

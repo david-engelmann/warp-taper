@@ -6,6 +6,7 @@
 
 pub mod assertion;
 pub mod bundle;
+pub mod captions;
 pub mod error;
 pub mod log_tail;
 pub mod pipeline;
@@ -17,6 +18,7 @@ pub mod stages;
 pub use assertion::{
     Assertion, AssertionContext, AssertionResult, EngineReport, NamedResult, Outcome,
 };
+pub use captions::{apply_captions, CaptionConfig, CaptionedArtifacts};
 pub use error::{Error, Result};
 pub use log_tail::LogTail;
 pub use pipeline::{Pipeline, RecordTrigger, Tape};
@@ -25,5 +27,5 @@ pub use recorder::{MacOsScreencapture, MacOsScreencaptureHandle};
 pub use recorder::{
     NoOpRecorder, NoOpRecordingHandle, Recorder, RecordingArtifact, RecordingHandle,
 };
-pub use scenario::{Metadata, Scenario, ScenarioBuilder};
+pub use scenario::{Caption, Metadata, Scenario, ScenarioBuilder};
 pub use stages::{BuildOutput, BuildProfile, BuildStage, DeployHandle, DeployStage};

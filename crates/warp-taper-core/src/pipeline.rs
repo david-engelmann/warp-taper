@@ -11,6 +11,7 @@ use chrono::{DateTime, Utc};
 
 use crate::assertion::{run_all, Assertion, AssertionContext, EngineReport};
 use crate::bundle::{self, BundleArtifacts, BundleInputs, StageLog};
+use crate::captions::{apply_captions, CaptionConfig};
 use crate::error::{Error, Result};
 use crate::log_tail::LogTail;
 use crate::recorder::{Recorder, RecordingHandle};
@@ -243,6 +244,28 @@ impl Pipeline {
             &render_record_log(&record_artifacts, record_started),
         )?;
 
+        // 3b. captions — burn scenario-defined timed captions onto the
+        //     master recording. Skipped when the scenario has no captions
+        //     or when ffmpeg isn't on PATH (we don't want a missing
+        //     optional toolchain to fail an otherwise-fine recording).
+        let captions_started = Utc::now();
+        let captioned = apply_captions(
+            &record_artifacts.mov_path,
+            &self.scenario.captions,
+            &self.tape_dir.join("master-captioned.mp4"),
+            &self.tape_dir.join("master-captioned.gif"),
+            &CaptionConfig::default(),
+        )
+        .map_err(|e| {
+            eprintln!("warp-taper: caption stage failed: {e}");
+            e
+        })?;
+        write_stage_log(
+            &stages_dir,
+            "03b-captions",
+            &render_captions_log(self.scenario.captions.len(), &captioned, captions_started),
+        )?;
+
         // 4. evaluate
         let ctx = AssertionContext::from_tape_dir(&self.tape_dir)
             .with_warp_source(self.warp_source.clone());
@@ -263,6 +286,8 @@ impl Pipeline {
         let has_real_mov = record_artifacts.mov_path.exists() && record_artifacts.mov_bytes > 0;
         let artifacts = BundleArtifacts {
             has_master_mov: has_real_mov,
+            has_captioned_mp4: captioned.is_some(),
+            has_captioned_gif: captioned.is_some(),
             patches: Vec::new(),
             session_log_bytes: Some(record_artifacts.session_bytes),
             mcp_logs: record_artifacts.mcp_log_names,
@@ -409,6 +434,27 @@ fn render_record_log(artifacts: &RecordedArtifacts, started: DateTime<Utc>) -> S
         artifacts.session_bytes,
         artifacts.mcp_log_names.len(),
     )
+}
+
+fn render_captions_log(
+    caption_count: usize,
+    captioned: &Option<crate::captions::CaptionedArtifacts>,
+    started: DateTime<Utc>,
+) -> String {
+    let started = started.format("%Y-%m-%dT%H:%M:%SZ");
+    match captioned {
+        Some(artifacts) => format!(
+            "captions: started at {started}\ncaptions: {caption_count} caption(s) rendered\ncaptions: mp4 {} \ncaptions: gif {}\n",
+            artifacts.mp4_path.display(),
+            artifacts.gif_path.display(),
+        ),
+        None if caption_count == 0 => format!(
+            "captions: started at {started}\ncaptions: skipped (scenario has no captions)\n"
+        ),
+        None => format!(
+            "captions: started at {started}\ncaptions: skipped ({caption_count} caption(s) requested but ffmpeg not available)\n"
+        ),
+    }
 }
 
 fn render_evaluate_log(report: &EngineReport, summary: &[String]) -> String {

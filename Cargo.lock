@@ -1075,6 +1075,8 @@ dependencies = [
  "ctrlc",
  "libc",
  "predicates",
+ "serde",
+ "serde_json",
  "tempfile",
  "warp-taper-core",
  "warp-taper-fixtures",

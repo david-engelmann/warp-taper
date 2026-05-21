@@ -63,6 +63,28 @@ enum Command {
         ticket: Option<String>,
     },
 
+    /// Burn captions onto a pre-recorded video, producing a captioned `.mp4`
+    /// and a `.gif` alongside the input. Useful for adding evidence captions
+    /// to a recording that wasn't produced by the full pipeline (e.g. a
+    /// `screencapture -v` capture of a terminal session).
+    Caption {
+        /// Input video (typically a `.mov`).
+        #[arg(long)]
+        input: PathBuf,
+
+        /// JSON file with `[{start, end, text}]` entries (seconds).
+        #[arg(long)]
+        captions: PathBuf,
+
+        /// Output `.mp4` path. Defaults to `<input-without-extension>-captioned.mp4`.
+        #[arg(long)]
+        output_mp4: Option<PathBuf>,
+
+        /// Output `.gif` path. Defaults to `<input-without-extension>-captioned.gif`.
+        #[arg(long)]
+        output_gif: Option<PathBuf>,
+    },
+
     /// Print version.
     Version,
 }
@@ -199,6 +221,12 @@ fn main() -> std::process::ExitCode {
             common,
         } => dispatch(run_yaml_pipeline(scenario_dir, common)),
         Command::RunBuiltin { name, common } => dispatch(run_builtin_pipeline(name, common)),
+        Command::Caption {
+            input,
+            captions,
+            output_mp4,
+            output_gif,
+        } => dispatch_int(run_caption(input, captions, output_mp4, output_gif)),
     }
 }
 
@@ -220,6 +248,63 @@ fn dispatch_int(result: warp_taper_core::Result<()>) -> std::process::ExitCode {
             eprintln!("warp-taper: {e}");
             std::process::ExitCode::from(2)
         }
+    }
+}
+
+fn run_caption(
+    input: PathBuf,
+    captions_path: PathBuf,
+    output_mp4: Option<PathBuf>,
+    output_gif: Option<PathBuf>,
+) -> warp_taper_core::Result<()> {
+    use std::time::Duration;
+    use warp_taper_core::{apply_captions, Caption, CaptionConfig};
+
+    #[derive(serde::Deserialize)]
+    struct RawCaption {
+        start: f64,
+        end: f64,
+        text: String,
+    }
+
+    let captions_text = std::fs::read_to_string(&captions_path)
+        .map_err(warp_taper_core::Error::Io)?;
+    let raw: Vec<RawCaption> = serde_json::from_str(&captions_text).map_err(|e| {
+        warp_taper_core::Error::ScenarioInvalid(format!(
+            "failed to parse captions JSON {}: {e}",
+            captions_path.display()
+        ))
+    })?;
+    let captions: Vec<Caption> = raw
+        .into_iter()
+        .map(|c| Caption {
+            start: Duration::from_secs_f64(c.start),
+            end: Duration::from_secs_f64(c.end),
+            text: c.text,
+        })
+        .collect();
+    if captions.is_empty() {
+        eprintln!("warp-taper: captions list is empty; nothing to do");
+        return Ok(());
+    }
+
+    let stem = input
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "video".to_string());
+    let parent = input.parent().unwrap_or_else(|| Path::new("."));
+    let out_mp4 = output_mp4.unwrap_or_else(|| parent.join(format!("{stem}-captioned.mp4")));
+    let out_gif = output_gif.unwrap_or_else(|| parent.join(format!("{stem}-captioned.gif")));
+
+    match apply_captions(&input, &captions, &out_mp4, &out_gif, &CaptionConfig::default())? {
+        Some(artifacts) => {
+            println!("captioned mp4: {}", artifacts.mp4_path.display());
+            println!("captioned gif: {}", artifacts.gif_path.display());
+            Ok(())
+        }
+        None => Err(warp_taper_core::Error::ScenarioInvalid(
+            "captions step produced no output (ffmpeg missing or skipped)".to_string(),
+        )),
     }
 }
 

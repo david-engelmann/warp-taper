@@ -1,0 +1,7 @@
+[
+  {"start": 0.0, "end": 4.0, "text": "warpdotdev/warp PR #11407 - nested integer coercion"},
+  {"start": 4.0, "end": 10.0, "text": "Schema declares search_from / search_to / filters[].value as integer"},
+  {"start": 10.0, "end": 16.0, "text": "Without the fix the agent would send 0.0 / 100.0 / 1730419200000.0"},
+  {"start": 16.0, "end": 22.0, "text": "Walker recurses through object - array - oneOf - integer leaves"},
+  {"start": 22.0, "end": 32.0, "text": "Test passes - all three nested integers reach the wire as integers"}
+]

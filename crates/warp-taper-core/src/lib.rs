@@ -4,6 +4,13 @@
 //! P1 ships pure-logic modules: `scenario`, `log_tail`, `bundle`.
 //! Stages (`pipeline`, `stages::*`, `recorder`, `assertion`) land in P2+.
 
+// rust-1.95 added `doc_overindented_list_items`, which trips on the
+// long-form module-doc bullet lists we use to explain each scenario's
+// reproduction shape. Suppressing here rather than rewriting every
+// scenario module's docstring; the indentation is intentional and
+// renders correctly in `cargo doc`.
+#![allow(clippy::doc_overindented_list_items)]
+
 pub mod assertion;
 pub mod bundle;
 pub mod captions;

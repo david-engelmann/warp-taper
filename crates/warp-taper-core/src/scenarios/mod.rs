@@ -5,12 +5,14 @@
 
 pub mod mcp_add_server_bypass;
 pub mod mcp_env_headers_bypass;
+pub mod mcp_integer_coercion;
 pub mod mcp_log_rotation;
 pub mod mcp_redaction_toggle;
 pub mod secrets_regex_startup_empty;
 
 pub use mcp_add_server_bypass::mcp_add_server_bypass;
 pub use mcp_env_headers_bypass::mcp_env_headers_bypass;
+pub use mcp_integer_coercion::mcp_integer_coercion;
 pub use mcp_log_rotation::mcp_log_rotation;
 pub use mcp_redaction_toggle::mcp_redaction_toggle;
 pub use secrets_regex_startup_empty::secrets_regex_startup_empty;
@@ -33,6 +35,7 @@ pub fn by_name(name: &str) -> Option<fn() -> Result<Builtin>> {
         }
         "mcp-env-headers-bypass" | "11263-mcp-env-headers-bypass" => Some(mcp_env_headers_bypass),
         "mcp-add-server-bypass" | "11265-mcp-add-server-bypass" => Some(mcp_add_server_bypass),
+        "mcp-integer-coercion" | "11407-mcp-integer-coercion" => Some(mcp_integer_coercion),
         _ => None,
     }
 }
@@ -45,6 +48,7 @@ pub fn names() -> &'static [&'static str] {
         "secrets-regex-startup-empty",
         "mcp-env-headers-bypass",
         "mcp-add-server-bypass",
+        "mcp-integer-coercion",
     ]
 }
 
@@ -64,6 +68,8 @@ mod tests {
         assert!(by_name("11263-mcp-env-headers-bypass").is_some());
         assert!(by_name("mcp-add-server-bypass").is_some());
         assert!(by_name("11265-mcp-add-server-bypass").is_some());
+        assert!(by_name("mcp-integer-coercion").is_some());
+        assert!(by_name("11407-mcp-integer-coercion").is_some());
     }
 
     #[test]
@@ -78,5 +84,6 @@ mod tests {
         assert!(names().contains(&"secrets-regex-startup-empty"));
         assert!(names().contains(&"mcp-env-headers-bypass"));
         assert!(names().contains(&"mcp-add-server-bypass"));
+        assert!(names().contains(&"mcp-integer-coercion"));
     }
 }

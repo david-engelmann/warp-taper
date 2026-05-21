@@ -1,0 +1,47 @@
+{
+  "name": "11407-mcp-integer-coercion",
+  "target_process": "warp-oss",
+  "_purpose": "Visual evidence for warpdotdev/warp#11407. The fix lives in `coerce_integer_args` (a private helper that runs before MCP tool calls hit the wire). Visual evidence is code-level: drive a terminal in warp-oss to `cat` the PANW test schema (proves the test exercises the exact shape from the issue body) and then run the unit test with `--nocapture` so the recording shows the assertions pass — i.e. the walker successfully coerced `0.0 / 100.0 / 1730419200000.0` to `0 / 100 / 1730419200000` at all three nested positions (object.object.int, object.object.array.oneOf.int).",
+  "_safety": "Read-only commands: `cat` and `cargo test`. No agent credits consumed. No state mutation outside cargo's target dir.",
+  "_credit_budget": "Zero agent / tool calls.",
+  "_phases": [
+    "A: cat the PANW test schema so the recording shows the JSON Schema shape",
+    "B: run cargo test --nocapture against the panw_audit_management_repro test",
+    "C: result frame stays on screen while last caption renders"
+  ],
+  "steps": [
+    {"op": "activate"},
+    {"op": "wait", "ms": 1500},
+
+    {"op": "press", "key": "escape"},
+    {"op": "wait", "ms": 200},
+    {"op": "press", "key": "escape"},
+    {"op": "wait", "ms": 200},
+    {"op": "chord", "mods": ["cmd"], "key": "a"},
+    {"op": "wait", "ms": 100},
+    {"op": "press", "key": "delete"},
+    {"op": "wait", "ms": 300},
+
+    {"op": "expect_text", "regex": "Warp anything", "timeout_ms": 8000},
+    {"op": "abort_if_text", "regex": "\\b(cd \\.\\.|git clone|source /Applications)"},
+
+    {"op": "paste_text", "text": "cd /tmp/warp-10596 && git branch --show-current && git rev-parse --short HEAD && echo && echo '=== PANW test schema (object.object.array.oneOf.integer) ===' && sed -n '/fn panw_audit_management_repro_coerces_all_integers/,/^}/p' app/src/ai/blocklist/action_model/execute/call_mcp_tool_tests.rs | sed -n '1,40p'"},
+    {"op": "wait", "ms": 400},
+    {"op": "press", "key": "return"},
+
+    {"op": "expect_text", "regex": "david/10596-mcp-integer-coercion", "timeout_ms": 10000},
+    {"op": "expect_text", "regex": "search_from", "timeout_ms": 10000},
+
+    {"op": "wait", "ms": 8000},
+
+    {"op": "paste_text", "text": "cargo test -p warp --lib panw_audit_management_repro_coerces_all_integers -- --nocapture --color=always 2>&1 | tail -8"},
+    {"op": "wait", "ms": 400},
+    {"op": "press", "key": "return"},
+
+    {"op": "expect_text", "regex": "test result: ok\\. 1 passed", "timeout_ms": 60000},
+
+    {"op": "wait", "ms": 5000},
+
+    {"op": "screenshot", "path": "/tmp/11407-final-frame.png"}
+  ]
+}

@@ -8,6 +8,7 @@ pub mod mcp_env_headers_bypass;
 pub mod mcp_integer_coercion;
 pub mod mcp_log_rotation;
 pub mod mcp_redaction_toggle;
+pub mod secrets_regex_safe_mode_subscription_patched;
 pub mod secrets_regex_startup_empty;
 
 pub use mcp_add_server_bypass::mcp_add_server_bypass;
@@ -15,6 +16,7 @@ pub use mcp_env_headers_bypass::mcp_env_headers_bypass;
 pub use mcp_integer_coercion::mcp_integer_coercion;
 pub use mcp_log_rotation::mcp_log_rotation;
 pub use mcp_redaction_toggle::mcp_redaction_toggle;
+pub use secrets_regex_safe_mode_subscription_patched::secrets_regex_safe_mode_subscription_patched;
 pub use secrets_regex_startup_empty::secrets_regex_startup_empty;
 
 use crate::assertion::Assertion;
@@ -33,6 +35,11 @@ pub fn by_name(name: &str) -> Option<fn() -> Result<Builtin>> {
         "secrets-regex-startup-empty" | "11262-secrets-regex-startup-empty" => {
             Some(secrets_regex_startup_empty)
         }
+        "secrets-regex-startup-empty-patched"
+        | "11262-secrets-regex-startup-empty-patched"
+        | "secrets-regex-safe-mode-subscription-patched" => {
+            Some(secrets_regex_safe_mode_subscription_patched)
+        }
         "mcp-env-headers-bypass" | "11263-mcp-env-headers-bypass" => Some(mcp_env_headers_bypass),
         "mcp-add-server-bypass" | "11265-mcp-add-server-bypass" => Some(mcp_add_server_bypass),
         "mcp-integer-coercion" | "11407-mcp-integer-coercion" => Some(mcp_integer_coercion),
@@ -46,6 +53,7 @@ pub fn names() -> &'static [&'static str] {
         "mcp-log-rotation",
         "mcp-redaction-toggle",
         "secrets-regex-startup-empty",
+        "secrets-regex-startup-empty-patched",
         "mcp-env-headers-bypass",
         "mcp-add-server-bypass",
         "mcp-integer-coercion",
@@ -64,6 +72,9 @@ mod tests {
         assert!(by_name("10839-mcp-redaction-toggle").is_some());
         assert!(by_name("secrets-regex-startup-empty").is_some());
         assert!(by_name("11262-secrets-regex-startup-empty").is_some());
+        assert!(by_name("secrets-regex-startup-empty-patched").is_some());
+        assert!(by_name("11262-secrets-regex-startup-empty-patched").is_some());
+        assert!(by_name("secrets-regex-safe-mode-subscription-patched").is_some());
         assert!(by_name("mcp-env-headers-bypass").is_some());
         assert!(by_name("11263-mcp-env-headers-bypass").is_some());
         assert!(by_name("mcp-add-server-bypass").is_some());
@@ -82,6 +93,7 @@ mod tests {
         assert!(names().contains(&"mcp-log-rotation"));
         assert!(names().contains(&"mcp-redaction-toggle"));
         assert!(names().contains(&"secrets-regex-startup-empty"));
+        assert!(names().contains(&"secrets-regex-startup-empty-patched"));
         assert!(names().contains(&"mcp-env-headers-bypass"));
         assert!(names().contains(&"mcp-add-server-bypass"));
         assert!(names().contains(&"mcp-integer-coercion"));

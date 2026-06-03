@@ -180,8 +180,16 @@ fn ffmpeg_available() -> bool {
 /// values. We escape each of those plus `'` in caption text so the filter
 /// string is unambiguous.
 pub fn build_drawtext_filter(captions: &[Caption], cfg: &CaptionConfig) -> String {
+    // `fps=30` first: ScreenCaptureKit's window-buffer recordings are
+    // variable-frame-rate with very sparse frames in static regions (the post-
+    // recipe tail can have one frame every several seconds). drawtext's
+    // `enable=between(t,a,b)` evaluates per-input-frame, so a caption window
+    // covering a sparse region renders nothing on the few existing frames. By
+    // normalizing to a 30 fps constant frame rate first, we densify the
+    // timeline so every visible second carries the matching caption — at the
+    // cost of duplicating frames in static regions, which is fine for review.
     let mut out = format!(
-        "drawbox=y=0:h={bh}:c=black@{alpha:.2}:t=fill",
+        "fps=30,drawbox=y=0:h={bh}:c=black@{alpha:.2}:t=fill",
         bh = cfg.bar_height,
         alpha = cfg.bar_alpha,
     );
@@ -324,11 +332,16 @@ mod tests {
     }
 
     #[test]
-    fn filter_starts_with_translucent_bar() {
+    fn filter_starts_with_fps_then_translucent_bar() {
         let captions = vec![cap(0.0, 3.0, "hello")];
         let filter = build_drawtext_filter(&captions, &CaptionConfig::default());
+        // fps=30 must come BEFORE drawbox/drawtext so the input is normalized
+        // to constant frame rate first — otherwise drawtext's
+        // enable=between(t,a,b) silently no-ops on sparse VFR tail frames
+        // (the source ScreenCaptureKit recordings have multi-second gaps
+        // between frames in static regions).
         assert!(
-            filter.starts_with("drawbox=y=0:h=70:c=black@0.85:t=fill"),
+            filter.starts_with("fps=30,drawbox=y=0:h=70:c=black@0.85:t=fill"),
             "got: {filter}"
         );
     }

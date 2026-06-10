@@ -1,0 +1,47 @@
+{
+  "name": "11413-mcp-parse-error-banner",
+  "target_process": "warp-oss",
+  "_purpose": "Visual evidence for warpdotdev/warp#11413 (oz-for-oss review 2026-06-10). Demonstrates the new Settings → MCP Servers parse-error banner appearing when ~/.warp-oss/.mcp.json contains an unresolved environment-variable reference (${UNDEFINED_ENV_VAR_FOR_PARSE_ERROR_DEMO}). Before this PR all four parse-failure sites in parse_mcp_config_file silently returned vec![]; this recipe captures the new structured error rendering. With the notify() fix in refresh_file_based_server_cards (this revision), the banner is reactive to ConfigParsed events even when no server cards were ever created.",
+  "_safety": "Recipe only navigates Settings; no MCP servers are saved or modified. The broken ~/.warp-oss/.mcp.json was authored intentionally for this evidence run and contains no real credentials.",
+  "_phases": [
+    "A: launch warp-oss with the broken MCP config in place",
+    "B: open Settings (Cmd+,)",
+    "C: search 'MCP' in settings filter",
+    "D: click 'MCP servers' tab",
+    "E: wait for the parse-error banner to render",
+    "F: capture screenshot of the banner"
+  ],
+  "steps": [
+    {"op": "activate"},
+    {"op": "wait", "ms": 1500},
+
+    {"op": "press", "key": "escape"},
+    {"op": "wait", "ms": 300},
+    {"op": "press", "key": "escape"},
+    {"op": "wait", "ms": 300},
+
+    {"op": "chord", "mods": ["cmd"], "key": ","},
+    {"op": "wait", "ms": 1500},
+
+    {"op": "expect_text", "regex": "Settings", "timeout_ms": 8000},
+
+    {"op": "chord", "mods": ["cmd"], "key": "a"},
+    {"op": "wait", "ms": 200},
+    {"op": "press", "key": "delete"},
+    {"op": "wait", "ms": 200},
+
+    {"op": "type", "text": "MCP"},
+    {"op": "wait", "ms": 800},
+
+    {"op": "expect_text", "regex": "^MCP servers$", "timeout_ms": 5000},
+    {"op": "click_text", "regex": "^MCP servers$"},
+    {"op": "wait", "ms": 1200},
+
+    {"op": "expect_text", "regex": "MCP Servers", "timeout_ms": 5000},
+    {"op": "wait", "ms": 800},
+
+    {"op": "screenshot", "path": "/tmp/11413-banner-evidence.png"},
+    {"op": "wait", "ms": 1500},
+    {"op": "screenshot", "path": "/tmp/11413-banner-evidence-2.png"}
+  ]
+}

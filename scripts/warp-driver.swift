@@ -389,20 +389,33 @@ func activate(processName: String) -> Bool {
 /// Drives `System Events` to make `processName` the frontmost app and
 /// returns once focus has settled. Every input-emitting op should call
 /// this immediately before posting events.
+///
+/// `name` and `displayed name` disagree for shipped apps whose
+/// executable differs from their bundle name (e.g. Stable Warp's
+/// executable is `stable`, displayed name is `Warp`). Try both so the
+/// same recipe can target either form.
 @discardableResult
 func ensureFrontmost(processName: String, settle: TimeInterval = 0.3) -> Bool {
-    let script =
-        "tell application \"System Events\" to set frontmost of (first process whose name is \"\(processName)\") to true"
-    var err: NSDictionary?
-    if let s = NSAppleScript(source: script) {
-        s.executeAndReturnError(&err)
+    let scripts = [
+        "tell application \"System Events\" to set frontmost of (first process whose name is \"\(processName)\") to true",
+        "tell application \"System Events\" to set frontmost of (first process whose displayed name is \"\(processName)\") to true",
+    ]
+    var lastErr: NSDictionary?
+    for script in scripts {
+        var err: NSDictionary?
+        if let s = NSAppleScript(source: script) {
+            s.executeAndReturnError(&err)
+        }
+        if err == nil {
+            Thread.sleep(forTimeInterval: settle)
+            return true
+        }
+        lastErr = err
     }
-    if let err {
-        info("ensureFrontmost(\(processName)): \(err)")
-        return false
+    if let lastErr {
+        info("ensureFrontmost(\(processName)): \(lastErr)")
     }
-    Thread.sleep(forTimeInterval: settle)
-    return true
+    return false
 }
 
 /// Send a key + modifiers via AppleScript `keystroke ... using {...}`.

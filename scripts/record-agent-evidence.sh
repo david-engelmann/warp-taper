@@ -87,8 +87,13 @@ done
 
 if ! pgrep -x "${PROC_NAME}" >/dev/null 2>&1; then
     if ! pgrep -i "${PROC_NAME}" >/dev/null 2>&1; then
-        echo "record-agent-evidence.sh: no running process matches '${PROC_NAME}'." >&2
-        exit 1
+        # Fall back to macOS displayed name (handles apps whose
+        # executable differs from their bundle, e.g. Stable Warp:
+        # executable `stable`, displayed name `Warp`).
+        if ! osascript -e "tell application \"System Events\" to exists (first process whose displayed name is \"${PROC_NAME}\")" 2>/dev/null | grep -q true; then
+            echo "record-agent-evidence.sh: no running process matches '${PROC_NAME}'." >&2
+            exit 1
+        fi
     fi
 fi
 

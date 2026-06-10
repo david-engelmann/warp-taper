@@ -1,0 +1,35 @@
+{
+  "name": "9853-stable-mcp-fresh-conversation",
+  "target_process": "Warp",
+  "_purpose": "Stable-channel repro for warpdotdev/warp#9853. Tests whether a globally-configured file-based MCP server (~/.warp/.mcp.json) is visible to the Warp agent in a brand-new conversation, before any terminal command has been run. If the bug reproduces, the agent will fail to find the proof-mcp whoami tool. If it does not reproduce (per vkodithala's 2026-05-22 review), the agent will call the tool and the unique identifier 'proof-mcp:warp#9853:david-engelmann' will render on screen.",
+  "_safety": "Cmd+T opens a fresh tab so the foreground window has a terminal prompt + agent input (not a markdown viewer). The first OCR anchor confirms 'Warp anything' is visible BEFORE any typing. `abort_if_text` patterns target shell-history dropdown content (the empirical leak surface). `click_text` hard-fails if OCR can't find the target — never blind-clicks.",
+  "steps": [
+    {"op": "activate"},
+    {"op": "wait", "ms": 1500},
+
+    {"op": "chord", "mods": ["cmd"], "key": "t"},
+    {"op": "wait", "ms": 2000},
+
+    {"op": "expect_text", "regex": "Warp anything", "timeout_ms": 10000},
+
+    {"op": "abort_if_text", "regex": "\\b(cd \\.\\.|git clone|source /Applications|ssh -|aws sso|kubectl)"},
+
+    {"op": "click_text", "regex": "Warp anything"},
+    {"op": "wait", "ms": 600},
+
+    {"op": "abort_if_text", "regex": "\\b(cd \\.\\.|git clone|source /Applications|ssh -|aws sso|kubectl)"},
+
+    {"op": "type", "text": "use the whoami tool from proof-mcp"},
+    {"op": "wait", "ms": 400},
+    {"op": "press", "key": "escape"},
+    {"op": "wait", "ms": 200},
+    {"op": "press", "key": "return"},
+
+    {"op": "wait", "ms": 4000},
+    {"op": "screenshot", "path": "/tmp/9853-stable-4s.png"},
+    {"op": "wait", "ms": 8000},
+    {"op": "screenshot", "path": "/tmp/9853-stable-12s.png"},
+    {"op": "wait", "ms": 8000},
+    {"op": "screenshot", "path": "/tmp/9853-stable-20s.png"}
+  ]
+}
